@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaPlaneDeparture, FaPlaneArrival, FaCalendarAlt, FaExchangeAlt } from 'react-icons/fa';
-import axios from 'axios';
+import api from '../api'; // api.js-ஐ இம்போர்ட் செய்கிறோம்
 
 function SearchForm({ onSearch }) {
   const [from, setFrom] = useState('');
@@ -13,7 +13,8 @@ function SearchForm({ onSearch }) {
   useEffect(() => {
     const fetchAirports = async () => {
       try {
-        const response = await axios.get('http://localhost:5001/api/airports');
+        // லோக்கல்ஹோஸ்ட்க்கு பதிலாக api.get பயன்படுத்துகிறோம்
+        const response = await api.get('/airports');
         const result = response.data;
         
         // டேட்டா எந்த வடிவில் வந்தாலும் அதை அரேவாக மாற்றிக் கொள்ள பாதுகாப்பு முறை
