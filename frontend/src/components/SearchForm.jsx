@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaPlaneDeparture, FaPlaneArrival, FaCalendarAlt, FaExchangeAlt } from 'react-icons/fa';
-import api from '../api'; // api.js-ஐ இம்போர்ட் செய்கிறோம்
+import api from './api'; // api.js-ஐ இம்போர்ட் செய்கிறோம்
 
 function SearchForm({ onSearch }) {
   const [from, setFrom] = useState('');
