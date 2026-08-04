@@ -1,4 +1,4 @@
-import Flight from '../models/Flight.js';
+import Flight from '../models/flight.js';
 import Airport from '../models/Airport.js';
 import Booking from '../models/Booking.js';
 
