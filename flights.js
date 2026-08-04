@@ -1,0 +1,32 @@
+export const mockFlights = [
+  {
+    id: '6E-204',
+    airline: 'IndiGo',
+    from: 'Chennai (MAA)',
+    to: 'Bengaluru (BLR)',
+    departureTime: '06:30',
+    arrivalTime: '07:30',
+    duration: '1h 00m',
+    price: 3500,
+  },
+  {
+    id: '6E-208',
+    airline: 'IndiGo',
+    from: 'Chennai (MAA)',
+    to: 'Bengaluru (BLR)',
+    departureTime: '09:15',
+    arrivalTime: '10:20',
+    duration: '1h 05m',
+    price: 4200,
+  },
+  {
+    id: 'AI-569',
+    airline: 'Air India',
+    from: 'Chennai (MAA)',
+    to: 'Bengaluru (BLR)',
+    departureTime: '11:00',
+    arrivalTime: '12:00',
+    duration: '1h 00m',
+    price: 3800,
+  },
+];
