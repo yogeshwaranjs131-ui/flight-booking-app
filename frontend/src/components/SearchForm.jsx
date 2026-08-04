@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaPlaneDeparture, FaPlaneArrival, FaCalendarAlt, FaExchangeAlt } from 'react-icons/fa';
-import api from '../api';// api.js-ஐ இம்போர்ட் செய்கிறோம்
+import axios from 'axios';
 
 function SearchForm({ onSearch }) {
   const [from, setFrom] = useState('');
@@ -13,8 +13,8 @@ function SearchForm({ onSearch }) {
   useEffect(() => {
     const fetchAirports = async () => {
       try {
-        // லோக்கல்ஹோஸ்ட்க்கு பதிலாக api.get பயன்படுத்துகிறோம்
-        const response = await api.get('/airports');
+        // நேரடியாக Render URL-ஐப் பயன்படுத்துகிறோம்
+        const response = await axios.get('https://flight-booking-app-6z55.onrender.com/api/airports');
         const result = response.data;
         
         // டேட்டா எந்த வடிவில் வந்தாலும் அதை அரேவாக மாற்றிக் கொள்ள பாதுகாப்பு முறை
