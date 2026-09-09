@@ -27,6 +27,15 @@ function CheckoutForm({ flight, selectedSeats, passengers, totalPrice }) {
     setError(null);
 
     try {
+      // 1. Validate payment element setup using elements.submit()
+      const { error: submitError } = await elements.submit();
+      if (submitError) {
+        setError(submitError.message);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Confirm Payment using Stripe Payment Element
       const result = await stripe.confirmPayment({
         elements,
         confirmParams: {
