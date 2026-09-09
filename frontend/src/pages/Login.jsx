@@ -75,7 +75,7 @@ function Login() {
               </div>
             </div>
 
-            <button type="submit" disabled={loading} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-indigo-blue hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400">
+            <button type="submit" disabled={loading} className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-400 cursor-pointer">
             {loading ? "Logging in..." : "Login"}
             </button>
           </form>
@@ -87,11 +87,16 @@ function Login() {
           </p>
         </div>
       </div>
-      <div className="hidden lg:block lg:w-1/2 bg-cover bg-center" style={{ backgroundImage: "url('https://images.unsplash.com/photo-152459271464c-e0d50c719453?q=80&w=1974&auto=format&fit=crop')" }}>
-        <div className="w-full h-full bg-black bg-opacity-30 flex flex-col items-center justify-center text-white p-12 text-center">
-          <FaPlane className="text-6xl mb-4" />
+
+      {/* Flight Background Image Section */}
+      <div 
+        className="hidden lg:block lg:w-1/2 bg-cover bg-center relative" 
+        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=1000&auto=format&fit=crop')" }}
+      >
+        <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-white p-12 text-center">
+          <FaPlane className="text-6xl mb-4 text-indigo-300" />
           <h1 className="text-4xl font-bold mb-2">Welcome Back</h1>
-          <p className="text-lg">Your next adventure is just a login away. Access your bookings and explore new destinations.</p>
+          <p className="text-lg text-gray-200">Your next adventure is just a login away. Access your bookings and explore new destinations.</p>
         </div>
       </div>
     </div>
