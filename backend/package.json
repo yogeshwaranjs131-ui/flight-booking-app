@@ -26,6 +26,7 @@
     "qrcode": "^1.5.4",
     "razorpay": "^2.9.8",
     "speakeasy": "^2.0.0",
+    "stripe": "^22.6.1",
     "winston": "^3.19.0"
   },
   "devDependencies": {

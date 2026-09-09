@@ -1,7 +1,9 @@
 import express from "express";
+import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import Stripe from "stripe";
 
 import flightRoutes from "./routes/flightRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
@@ -16,7 +18,10 @@ import {
   errorHandler,
 } from "./middleware/errorMiddleware.js";
 
+dotenv.config();
+
 const app = express();
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 /* ==========================
    MIDDLEWARES
@@ -53,6 +58,29 @@ app.use(
     extended: true,
   })
 );
+
+app.post('/api/create-payment-intent', async (req, res) => {
+  try {
+    const { amount } = req.body || {};
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ error: 'A valid amount is required.' });
+    }
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(Number(amount) * 100),
+      currency: 'inr',
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
+
+    return res.status(200).json({
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+});
 
 /* ==========================
    HEALTH CHECK ROUTE

@@ -3,7 +3,6 @@ import { useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { formatCurrency } from '../utils/formatCurrency';
 import { formatDateTime } from '../utils/formatDate';
 import { FaPlane, FaUserFriends, FaRupeeSign } from 'react-icons/fa';
-import bookingService from '../services/bookingService';
 
 function BookingReview() {
   const navigate = useNavigate();
@@ -24,25 +23,15 @@ function BookingReview() {
   const airlineName = flight.airline || 'Airline';
   const flightNo = flight.flightNumber || 'FL-001';
 
-  const handleProceedToPayment = async () => {
-    try {
-      const bookingPayload = {
-        flightId: flight._id || flight.id,
-        passengers: passengers,
-        seats: selectedSeats,
-        totalPrice: totalPrice, // totalPrice சரியாக இங்கே அனுப்பப்படுகிறது
-      };
-
-      const response = await bookingService.createBooking(bookingPayload);
-      const bookingData = response.data || response;
-
-      navigate('/booking-confirmation', {
-        state: { booking: bookingData },
-      });
-    } catch (err) {
-      console.error("Booking failed:", err);
-      alert(err.response?.data?.message || "Failed to create booking. Please try again.");
-    }
+  const handleProceedToPayment = () => {
+    navigate('/payment', {
+      state: {
+        flight,
+        selectedSeats,
+        passengers,
+        totalPrice,
+      },
+    });
   };
 
   return (

@@ -41,9 +41,10 @@ export default function BookingPage() {
   const [contactInfo, setContactInfo] = useState({ email: '', phone: '' });
 
 
-  // Mock available seats (e.g., 12 seats layout)
-  const rows = ['1', '2', '3', '4'];
-  const cols = ['A', 'B', 'C'];
+  // Premium 30-seat configuration with window seats in the outer columns A and F.
+  const rows = ['1', '2', '3', '4', '5'];
+  const cols = ['A', 'B', 'C', 'D', 'E', 'F'];
+  const windowColumns = new Set(['A', 'F']);
 
   // Fetch flight details based on ID passed in URL
   useEffect(() => {
@@ -245,35 +246,49 @@ export default function BookingPage() {
                   <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                     <Armchair className="text-indigo-600" /> Choose Your Seat
                   </h3>
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col items-center justify-center">
-                    <div className="w-48 bg-slate-200 h-8 rounded-t-full mb-6 flex items-center justify-center text-xs font-bold text-slate-600 tracking-wider">
-                      COCKPIT / FRONT
+
+                  <div className="booking-seat-layout">
+                    <div className="booking-seat-layout-top">
+                      <div className="booking-cockpit-label">COCKPIT / FRONT</div>
+                      <div className="booking-window-map">
+                        <span className="booking-window-chip booking-window-chip-left">Window Seat</span>
+                        <span className="booking-window-chip booking-window-chip-right">Aisle</span>
+                      </div>
                     </div>
-                    
-                    <div className="space-y-3 w-full max-w-xs">
+
+                    <div className="booking-seat-grid">
                       {rows.map((row) => (
-                        <div key={row} className="flex justify-center gap-4">
+                        <div key={row} className="booking-seat-row">
                           {cols.map((col) => {
                             const seatNumber = `${row}${col}`;
                             const isSelected = selectedSeats.includes(seatNumber);
+                            const isWindow = windowColumns.has(col);
                             return (
                               <button
                                 key={seatNumber}
                                 type="button"
                                 onClick={() => handleSeatClick(seatNumber)}
-                                className={`w-12 h-12 rounded-xl font-bold text-sm border transition-all flex items-center justify-center ${
-                                  isSelected
-                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-105'
-                                    : 'bg-white text-slate-700 border-slate-300 hover:border-indigo-400'
-                                }`}
+                                className={`booking-seat-button ${isSelected ? 'is-selected' : ''} ${isWindow ? 'is-window' : ''}`}
                               >
-                                {seatNumber}
+                                <span className="booking-seat-surface">
+                                  <span className="booking-seat-back" />
+                                  <span className="booking-seat-cushion" />
+                                </span>
+                                <span className="booking-seat-number">{seatNumber}</span>
+                                {isWindow && <span className="booking-seat-window">W</span>}
                               </button>
                             );
                           })}
                         </div>
                       ))}
                     </div>
+
+                    <div className="booking-seat-legend">
+                      <span><span className="legend-swatch legend-open" />Available Seat</span>
+                      <span><span className="legend-swatch legend-selected" />Selected</span>
+                      <span><span className="legend-swatch legend-window" />Window Seat</span>
+                    </div>
+
                     <p className="text-xs text-slate-500 mt-6">
                       Selected Seats: <strong className="text-indigo-600">{selectedSeats.join(', ') || 'None'}</strong>
                     </p>
@@ -469,51 +484,70 @@ export default function BookingPage() {
           </div>
         ) : (
           /* SUCCESS CONFIRMATION & TICKET DOWNLOAD SCREEN */
-          <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-8 sm:p-12 text-center space-y-6">
-            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
-              <CheckCircle className="w-8 h-8" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900">Booking Confirmed Successfully!</h2>
-              <p className="text-slate-600 max-w-md mx-auto">
-                Your PNR is <strong className="text-indigo-600">{booking?.pnr}</strong>. We have sent your flight ticket details to <strong className="text-slate-800">{contactInfo.email}</strong>.
-              </p>
-            </div>
-
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 max-w-md mx-auto text-left space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Airline:</span>
-                <span className="font-bold text-slate-800">{flight?.airline} ({flight?.flightNumber})</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Route:</span>
-                <span className="font-bold text-slate-800">{flight?.departureAirport?.city} → {flight?.arrivalAirport?.city}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Seat Number:</span>
-                <span className="font-bold text-indigo-600">{selectedSeats.join(', ')}</span>
-              </div>
-              {passengers.map((p, i) => (
-                <div key={i} className="flex justify-between text-sm">
-                  <span className="text-slate-500">Passenger {i+1}:</span>
-                  <span className="font-bold text-slate-800">{p.name}</span>
+          <div className="ticket-confirm-shell">
+            <div className="ticket-confirm-card">
+              <div className="ticket-confirm-header">
+                <div className="ticket-confirm-brand">
+                  <span className="ticket-confirm-icon"><Plane className="w-5 h-5" /></span>
+                  <div>
+                    <span className="ticket-confirm-kicker">AIRLINES E-TICKET</span>
+                    <span className="ticket-confirm-pnr">PNR: {booking?.pnr || 'N/A'}</span>
+                  </div>
                 </div>
-              ))}
-            </div>
+                <span className="ticket-confirm-badge">
+                  <CheckCircle className="w-4 h-4" /> Confirmed
+                </span>
+              </div>
 
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <button
-                onClick={handleDownloadPDF}
-                className="inline-flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-xl font-semibold shadow-md transition-all cursor-pointer"
-              >
-                <Download className="w-4 h-4" /> Download Ticket (PDF)
-              </button>
-              <button
-                onClick={() => navigate('/')}
-                className="inline-flex items-center justify-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-800 px-8 py-3 rounded-xl font-semibold transition-all cursor-pointer"
-              >
-                Back to Home
-              </button>
+              <div className="ticket-confirm-route">
+                <div className="ticket-route-city">
+                  <span className="ticket-route-code">{flight?.departureAirport?.code || 'COK'}</span>
+                  <span className="ticket-route-place">{flight?.departureAirport?.city || 'Cochin'}</span>
+                </div>
+                <div className="ticket-route-line">
+                  <span className="ticket-route-dash" />
+                  <Plane className="ticket-route-plane" />
+                  <span className="ticket-route-dash" />
+                </div>
+                <div className="ticket-route-city ticket-route-city-right">
+                  <span className="ticket-route-code">{flight?.arrivalAirport?.code || 'MAA'}</span>
+                  <span className="ticket-route-place">{flight?.arrivalAirport?.city || 'Chennai'}</span>
+                </div>
+              </div>
+
+              <div className="ticket-confirm-detail-grid">
+                <div className="ticket-detail-cell">
+                  <span className="ticket-detail-label">Passenger</span>
+                  <span className="ticket-detail-value">{passengers.map((p) => p.name).filter(Boolean).join(', ') || 'Passenger'}</span>
+                </div>
+                <div className="ticket-detail-cell">
+                  <span className="ticket-detail-label">Seat</span>
+                  <span className="ticket-detail-value">{selectedSeats.join(', ') || 'N/A'}</span>
+                </div>
+                <div className="ticket-detail-cell">
+                  <span className="ticket-detail-label">Flight</span>
+                  <span className="ticket-detail-value">{flight?.flightNumber || 'AX-404'}</span>
+                </div>
+                <div className="ticket-detail-cell">
+                  <span className="ticket-detail-label">Total Fare</span>
+                  <span className="ticket-detail-value">₹{flight?.price * passengerCount}</span>
+                </div>
+              </div>
+
+              <div className="ticket-confirm-actions">
+                <button
+                  onClick={handleDownloadPDF}
+                  className="ticket-confirm-download"
+                >
+                  <Download className="w-4 h-4" /> Download Ticket (PDF)
+                </button>
+                <button
+                  onClick={() => navigate('/')}
+                  className="ticket-confirm-home"
+                >
+                  Back to Home
+                </button>
+              </div>
             </div>
           </div>
         )}

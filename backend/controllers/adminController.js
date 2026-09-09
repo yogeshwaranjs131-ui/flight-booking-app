@@ -2,6 +2,37 @@ import User from '../models/User.js';
 import Flight from '../models/flight.js';
 import Booking from '../models/Booking.js';
 
+export const getDashboardStats = async (req, res) => {
+  return getStats(req, res);
+};
+
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find().select('-password').sort({ createdAt: -1 });
+    return res.status(200).json({ success: true, data: users });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAllBookings = async (req, res) => {
+  try {
+    const bookings = await Booking.find().populate('user', 'name email').populate({ path: 'flight', populate: [{ path: 'departureAirport' }, { path: 'arrivalAirport' }] }).sort({ createdAt: -1 });
+    return res.status(200).json({ success: true, data: bookings });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAllFlights = async (req, res) => {
+  try {
+    const flights = await Flight.find().populate('departureAirport').populate('arrivalAirport').sort({ departureTime: 1 });
+    return res.status(200).json({ success: true, data: flights });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 /**
  * @desc    Get application statistics
  * @route   GET /api/admin/stats

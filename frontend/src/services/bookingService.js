@@ -31,6 +31,10 @@ const cancelBooking = (id) => {
 /**
  * Downloads the booking ticket as a PDF.
  */
+const getBookingByPnr = (pnr) => {
+  return api.get(`/bookings/pnr/${encodeURIComponent(pnr)}`);
+};
+
 const downloadTicket = (id) => {
   return api.get(`/bookings/${id}/download`, { responseType: 'blob' });
 };
@@ -39,6 +43,7 @@ export const bookingService = {
   createBooking,
   getMyBookings,
   getAllBookings,
+  getBookingByPnr,
   cancelBooking,
   downloadTicket,
 };

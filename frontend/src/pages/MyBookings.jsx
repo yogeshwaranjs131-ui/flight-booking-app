@@ -4,15 +4,19 @@ import { useFetch } from '../hooks/useFetch';
 import bookingService from '../services/bookingService';
 import Loader from '../components/Loader.jsx';
 import Ticket from '../components/Ticket.jsx';
-import { FaTicketAlt } from 'react-icons/fa';
+import { FaTicketAlt, FaSearch } from 'react-icons/fa';
 
 function MyBookings() {
   const [activeTab, setActiveTab] = useState('Upcoming');
+  const [pnrQuery, setPnrQuery] = useState('');
+  const [pnrBooking, setPnrBooking] = useState(null);
+  const [pnrError, setPnrError] = useState('');
+  const [pnrLoading, setPnrLoading] = useState(false);
+
   const { data: responseData, loading, error, refetch } = useFetch(bookingService.getMyBookings);
 
   const bookings = useMemo(() => {
     if (!responseData) return [];
-    // The actual bookings array is inside the 'data' property of the response
     return responseData.data || [];
   }, [responseData]);
 
@@ -21,7 +25,7 @@ function MyBookings() {
       try {
         await bookingService.cancelBooking(bookingId);
         alert('Booking cancelled successfully.');
-        refetch(); // Refresh the list of bookings
+        refetch();
       } catch (err) {
         alert('Failed to cancel booking. Please try again.');
         console.error(err);
@@ -29,15 +33,33 @@ function MyBookings() {
     }
   };
 
+  const handlePnrLookup = async () => {
+    const normalizedPnr = pnrQuery.trim().toUpperCase();
+    if (!normalizedPnr) {
+      setPnrError('Enter a PNR number to check the booking status.');
+      return;
+    }
+
+    try {
+      setPnrLoading(true);
+      setPnrError('');
+      const response = await bookingService.getBookingByPnr(normalizedPnr);
+      setPnrBooking(response.data.data || response.data);
+    } catch (err) {
+      setPnrBooking(null);
+      setPnrError(err.response?.data?.message || 'PNR not found.');
+    } finally {
+      setPnrLoading(false);
+    }
+  };
+
   const filteredBookings = useMemo(() => {
     if (!bookings) return [];
-    
+
     return bookings.filter(b => {
-      // status-ஐ lowercase-ஆக மாற்றி செக் செய்வதால் பெரிய/சிறிய எழுத்து குழப்பம் வராது
       const status = (b.status || '').toLowerCase();
-      
+
       if (activeTab === 'Upcoming') {
-        // confirmed அல்லது pending எதுவாக இருந்தாலும் Upcoming-ல் காட்டும்
         return status === 'confirmed' || status === 'pending';
       }
       if (activeTab === 'Cancelled') {
@@ -59,7 +81,49 @@ function MyBookings() {
     <div className="max-w-4xl mx-auto py-12 px-4">
       <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">My Bookings</h2>
 
-      {/* Tabs */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-8">
+        <div className="flex flex-col sm:flex-row gap-3 items-center">
+          <div className="relative flex-1 w-full">
+            <FaSearch className="absolute left-3 top-3.5 text-slate-400" />
+            <input
+              type="text"
+              value={pnrQuery}
+              onChange={(e) => setPnrQuery(e.target.value)}
+              placeholder="Check PNR Status"
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-600 focus:outline-none text-slate-800"
+            />
+          </div>
+          <button
+            onClick={handlePnrLookup}
+            disabled={pnrLoading}
+            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold shadow-md transition-all disabled:bg-slate-400"
+          >
+            {pnrLoading ? 'Checking...' : 'Live PNR Status'}
+          </button>
+        </div>
+
+        {pnrError && (
+          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 text-red-700 px-4 py-3">
+            {pnrError}
+          </div>
+        )}
+
+        {pnrBooking && (
+          <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
+            <div className="flex justify-between items-center gap-4 flex-wrap">
+              <div>
+                <span className="text-xs uppercase font-bold tracking-wide text-indigo-700">PNR Status</span>
+                <div className="font-bold text-slate-900 mt-1">{pnrBooking.pnr}</div>
+              </div>
+              <span className={`px-4 py-2 rounded-full text-xs font-bold uppercase ${pnrBooking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>Status: {pnrBooking.status}</span>
+            </div>
+            <div className="mt-3">
+              <Ticket booking={pnrBooking} onCancel={handleCancelBooking} />
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="mb-8 flex justify-center border-b border-gray-200">
         <button
           onClick={() => setActiveTab('Upcoming')}

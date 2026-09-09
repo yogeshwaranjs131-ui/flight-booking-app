@@ -1,9 +1,36 @@
 import Booking from '../models/Booking.js';
 import Flight from '../models/flight.js';
-import crypto from 'crypto';
 import sendEmail from '../utils/sendEmail.js';
 import generateTicketPDF from '../utils/generateTicketPDF.js';
 import { generatePNR } from '../utils/pnrUtils.js';
+
+export const getBookingByPnr = async (req, res) => {
+  try {
+    const rawPnr = String(req.params.pnr || '').trim().toUpperCase();
+    if (!rawPnr) {
+      return res.status(400).json({ success: false, message: 'PNR is required' });
+    }
+
+    const booking = await Booking.findOne({ pnr: rawPnr }).populate('user', 'name email').populate({
+      path: 'flight',
+      populate: [{ path: 'departureAirport' }, { path: 'arrivalAirport' }]
+    });
+
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'PNR not found' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: booking,
+      status: booking.status,
+      pnr: booking.pnr,
+      message: 'PNR status fetched successfully',
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 export const createBooking = async (req, res) => {
   try {
@@ -15,12 +42,11 @@ export const createBooking = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Flight not found' });
     }
 
+    // Stripe Payment Details Check
     if (paymentDetails) {
-      const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = paymentDetails;
-      const body = razorpay_order_id + "|" + razorpay_payment_id;
-      const expectedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(body.toString()).digest('hex');
-      if (expectedSignature !== razorpay_signature) {
-        return res.status(400).json({ success: false, message: 'Payment verification failed.' });
+      const { stripe_payment_intent_id } = paymentDetails;
+      if (!stripe_payment_intent_id) {
+        return res.status(400).json({ success: false, message: 'Stripe Payment verification failed.' });
       }
     }
     
@@ -29,6 +55,7 @@ export const createBooking = async (req, res) => {
     );
 
     const finalTotalPrice = totalPrice && !isNaN(totalPrice) ? Number(totalPrice) : normalizedSeats.length * 6500;
+    const pnr = await generatePNR();
 
     const newBooking = new Booking({
       user: userId,
@@ -36,7 +63,8 @@ export const createBooking = async (req, res) => {
       passengers,
       seats: normalizedSeats,
       totalPrice: finalTotalPrice,
-      pnr: generatePNR(),
+      pnr,
+      paymentDetails, // Stripe payment info-வை சேர்த்து சேமிக்க
     });
 
     const savedBooking = await newBooking.save();
@@ -93,7 +121,6 @@ export const cancelBooking = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Booking is already cancelled' });
     }
 
-    // findByIdAndUpdate மூலம் ஸ்டேட்டஸை மாற்றும்போது ஸ்கீமா வேலிடேஷன் எரர் வராது
     const updatedBooking = await Booking.findByIdAndUpdate(
       bookingId, 
       { status: 'Cancelled' }, 

@@ -3,6 +3,7 @@ import {
   createBooking, 
   getMyBookings, 
   getBookingById,
+  getBookingByPnr,
   cancelBooking,
   downloadTicket
 } from "../controllers/bookingController.js";
@@ -13,6 +14,7 @@ const router = express.Router();
 // 1. Specific static routes (Must be at the top)
 router.get("/mybookings", protect, getMyBookings);
 router.get("/my-bookings", protect, getMyBookings);
+router.get("/pnr/:pnr", protect, getBookingByPnr);
 router.post("/", protect, createBooking);
 
 // 2. Action & Dynamic routes (Must be at the bottom)
