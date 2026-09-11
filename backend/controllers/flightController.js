@@ -135,17 +135,31 @@ export const getFlightById = async (req, res) => {
 export const createFlight = async (req, res) => {
   try {
     const { airline, flightNumber, departureAirport, arrivalAirport, departureTime, arrivalTime, price, totalSeats, duration } = req.body;
+    
+    // மெமரி கிராஷ் ஆகாமல் இருக்க அதிகபட்ச சீட் வரம்பை 180 ஆகக் கட்டுப்படுத்துகிறோம்
+    const maxSeats = Math.min(Number(totalSeats) || 120, 180);
     const seats = [];
-    for (let i = 0; i < totalSeats; i++) {
+    
+    for (let i = 0; i < maxSeats; i++) {
       const row = Math.floor(i / 6) + 1;
       const col = String.fromCharCode(65 + (i % 6));
       seats.push({ number: `${row}${col}`, isAvailable: true });
     }
+    
     const flight = await Flight.create({
-      airline, flightNumber, departureAirport, arrivalAirport,
-      departureTime, arrivalTime, price, totalSeats, duration,
-      availableSeats: totalSeats, seats,
+      airline, 
+      flightNumber, 
+      departureAirport, 
+      arrivalAirport,
+      departureTime, 
+      arrivalTime, 
+      price, 
+      totalSeats: maxSeats, 
+      duration,
+      availableSeats: maxSeats, 
+      seats,
     });
+    
     res.status(201).json({ success: true, data: flight });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
