@@ -1,13 +1,12 @@
-import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 
 // Layouts (src/layouts/)
-import MainLayout from './layouts/MainLayout';
 import AdminLayout from './layouts/AdminLayout';
 
 // Route Protection (src/components/)
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
+import FlyingPlane from './components/FlyingPlane'; // பறக்கும் விமான காம்போனன்ட்
 
 // Core Pages (src/pages/)
 import Home from './pages/Home';
@@ -16,7 +15,7 @@ import Register from './pages/Register';
 import SearchFlights from './pages/SearchFlights';
 import ForgotPassword from './pages/ForgotPassword';
 import FlightDetails from './pages/FlightDetails';
-import BookingPage from './pages/BookingPage'; // <-- 1. Added BookingPage import
+import BookingPage from './pages/BookingPage';
 import PassengerDetails from './pages/PassengerDetails';
 import BookingReview from './pages/BookingReview';
 import Payment from './pages/Payment';
@@ -34,19 +33,22 @@ import FlightForm from './admin/FlightForm';
 
 function AppRouter() {
   return (
-    <Routes>
-      {/* Public & Protected Routes inside MainLayout */}
-      <Route element={<MainLayout />}>
+    <div className="min-h-screen bg-linear-to-b from-sky-400 via-sky-300 to-blue-500 text-slate-900 relative overflow-hidden">
+      {/* சினிமாட்டிக் பறக்கும் விமானம் அனைத்துப் பக்கங்களிலும் தொடர்ந்து வர */}
+      <FlyingPlane />
+
+      <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/search-flights" element={<SearchFlights />} />
-        <Route path="/flight-details/:id" element={<FlightDetails />} />
-        <Route path="/book/:id" element={<BookingPage />} /> {/* <-- 2. Added BookingPage route */}
         
-        {/* Protected User Routes */}
+        {/* Protected User Routes (Home -> Search -> Details -> Booking -> Payment -> My Bookings) */}
         <Route element={<ProtectedRoute />}>
+          <Route path="/search-flights" element={<SearchFlights />} />
+          <Route path="/flight-details/:id" element={<FlightDetails />} />
+          <Route path="/book/:id" element={<BookingPage />} />
           <Route path="/passenger-details" element={<PassengerDetails />} />
           <Route path="/booking-review" element={<BookingReview />} />
           <Route path="/payment" element={<Payment />} />
@@ -54,23 +56,23 @@ function AppRouter() {
           <Route path="/my-bookings" element={<MyBookings />} />
           <Route path="/profile" element={<Profile />} />
         </Route>
-      </Route>
 
-      {/* Admin Routes with AdminRoute & AdminLayout */}
-      <Route element={<AdminRoute />}>
-        <Route element={<AdminLayout />}>
-          <Route path="/admin/dashboard" element={<Dashboard />} />
-          <Route path="/admin/manage-flights" element={<ManageFlights />} />
-          <Route path="/admin/add-flight" element={<FlightForm />} />
-          <Route path="/admin/edit-flight/:id" element={<FlightForm />} />
-          <Route path="/admin/manage-bookings" element={<ManageBookings />} />
-          <Route path="/admin/manage-users" element={<Users />} />
+        {/* Admin Routes with AdminLayout */}
+        <Route element={<AdminRoute />}>
+          <Route element={<AdminLayout />}>
+            <Route path="/admin/dashboard" element={<Dashboard />} />
+            <Route path="/admin/manage-flights" element={<ManageFlights />} />
+            <Route path="/admin/add-flight" element={<FlightForm />} />
+            <Route path="/admin/edit-flight/:id" element={<FlightForm />} />
+            <Route path="/admin/manage-bookings" element={<ManageBookings />} />
+            <Route path="/admin/manage-users" element={<Users />} />
+          </Route>
         </Route>
-      </Route>
 
-      {/* Global Not Found Route */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+        {/* Global Not Found Route */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </div>
   );
 }
 

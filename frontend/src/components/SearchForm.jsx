@@ -9,15 +9,12 @@ function SearchForm({ onSearch }) {
   const [airports, setAirports] = useState([]);
   const [loadingAirports, setLoadingAirports] = useState(true);
 
-  // டேட்டாபேஸில் உள்ள ஏர்போர்ட்ஸ் லிஸ்ட்டை லோட் செய்ய
   useEffect(() => {
     const fetchAirports = async () => {
       try {
-        // நேரடியாக Render URL-ஐப் பயன்படுத்துகிறோம்
         const response = await axios.get('https://flight-booking-app-6z55.onrender.com/api/airports');
         const result = response.data;
         
-        // டேட்டா எந்த வடிவில் வந்தாலும் அதை அரேவாக மாற்றிக் கொள்ள பாதுகாப்பு முறை
         if (Array.isArray(result)) {
           setAirports(result);
         } else if (Array.isArray(result.data)) {
@@ -53,23 +50,28 @@ function SearchForm({ onSearch }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-2xl space-y-6">
+    <form onSubmit={handleSubmit} className="p-2 space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-center">
+        
         {/* From Input (Dropdown) */}
         <div className="md:col-span-2 relative">
-          <label htmlFor="from" className="block text-sm font-medium text-gray-500 mb-1">From (Departure Airport)</label>
+          <label htmlFor="from" className="block text-sm font-semibold text-white/90 mb-1 tracking-wide">
+            From (Departure Airport)
+          </label>
           <div className="relative">
-            <FaPlaneDeparture className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10" />
+            <FaPlaneDeparture className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-400 z-10 text-lg" />
             <select
               id="from"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-blue focus:border-indigo-blue transition bg-white"
+              className="w-full pl-12 pr-4 py-3.5 bg-slate-900/90 text-white border border-white/30 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition shadow-inner cursor-pointer"
               required
             >
-              <option value="">{loadingAirports ? "Loading airports..." : "Select Departure Airport"}</option>
+              <option value="" className="bg-slate-900 text-slate-400">
+                {loadingAirports ? "Loading airports..." : "Select Departure Airport"}
+              </option>
               {Array.isArray(airports) && airports.map((airport) => (
-                <option key={airport._id} value={airport.airportCode}>
+                <option key={airport._id} value={airport.airportCode} className="bg-slate-900 text-white">
                   {airport.city} ({airport.airportCode}) - {airport.name}
                 </option>
               ))}
@@ -78,27 +80,36 @@ function SearchForm({ onSearch }) {
         </div>
 
         {/* Swap Button */}
-        <div className="text-center">
-          <button type="button" onClick={handleSwap} className="mt-6 p-2 rounded-full bg-gray-200 text-gray-600 hover:bg-indigo-100 hover:text-indigo-blue transition-colors cursor-pointer">
-            <FaExchangeAlt className="transform rotate-90 md:rotate-0" />
+        <div className="text-center flex justify-center items-center">
+          <button 
+            type="button" 
+            onClick={handleSwap} 
+            className="mt-6 p-3 rounded-full bg-white/10 hover:bg-blue-600 text-white border border-white/20 transition-all duration-300 shadow-lg cursor-pointer transform hover:rotate-180"
+            title="Swap Airports"
+          >
+            <FaExchangeAlt className="transform rotate-90 md:rotate-0 text-amber-200" />
           </button>
         </div>
 
         {/* To Input (Dropdown) */}
         <div className="md:col-span-2 relative">
-          <label htmlFor="to" className="block text-sm font-medium text-gray-500 mb-1">To (Arrival Airport)</label>
+          <label htmlFor="to" className="block text-sm font-semibold text-white/90 mb-1 tracking-wide">
+            To (Arrival Airport)
+          </label>
           <div className="relative">
-            <FaPlaneArrival className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10" />
+            <FaPlaneArrival className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-300 z-10 text-lg" />
             <select
               id="to"
               value={to}
               onChange={(e) => setTo(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-blue focus:border-indigo-blue transition bg-white"
+              className="w-full pl-12 pr-4 py-3.5 bg-slate-900/90 text-white border border-white/30 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition shadow-inner cursor-pointer"
               required
             >
-              <option value="">{loadingAirports ? "Loading airports..." : "Select Arrival Airport"}</option>
+              <option value="" className="bg-slate-900 text-slate-400">
+                {loadingAirports ? "Loading airports..." : "Select Arrival Airport"}
+              </option>
               {Array.isArray(airports) && airports.map((airport) => (
-                <option key={airport._id} value={airport.airportCode}>
+                <option key={airport._id} value={airport.airportCode} className="bg-slate-900 text-white">
                   {airport.city} ({airport.airportCode}) - {airport.name}
                 </option>
               ))}
@@ -107,20 +118,34 @@ function SearchForm({ onSearch }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
         {/* Date Input */}
         <div className="relative">
-          <label htmlFor="date" className="block text-sm font-medium text-gray-500 mb-1">Departure Date</label>
+          <label htmlFor="date" className="block text-sm font-semibold text-white/90 mb-1 tracking-wide">
+            Departure Date
+          </label>
           <div className="relative">
-            <FaCalendarAlt className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="date" id="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-blue focus:border-indigo-blue transition" required />
+            <FaCalendarAlt className="absolute left-4 top-1/2 -translate-y-1/2 text-amber-200 text-lg" />
+            <input 
+              type="date" 
+              id="date" 
+              value={date} 
+              onChange={(e) => setDate(e.target.value)} 
+              className="w-full pl-12 pr-4 py-3.5 bg-slate-900/90 text-white border border-white/30 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition shadow-inner cursor-pointer" 
+              required 
+            />
           </div>
         </div>
 
         {/* Submit Button */}
-        <button type="submit" className="w-full self-end bg-indigo-accent text-white py-3 px-6 rounded-lg font-semibold text-lg hover:bg-pink-700 transition-colors shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 cursor-pointer">
-          Search Flights
-        </button>
+        <div>
+          <button 
+            type="submit" 
+            className="w-full bg-linear-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white py-3.5 px-6 rounded-xl font-bold text-base transition-all duration-300 shadow-xl shadow-blue-600/40 border border-blue-400/30 transform hover:-translate-y-0.5 cursor-pointer"
+          >
+            Search Flights ✈️
+          </button>
+        </div>
       </div>
     </form>
   );

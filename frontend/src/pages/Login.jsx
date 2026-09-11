@@ -30,14 +30,19 @@ function Login() {
       const data = await login(formData);
 
       if (data.twoFactorRequired) {
-        // If 2FA is required, navigate to the verification page
         navigate('/verify-2fa', { state: { userId: data.userId } });
       } else {
-        // If 2FA is not required, redirect based on user role
+        if (data) {
+          localStorage.setItem("user", JSON.stringify(data.user || data));
+          if (data.token) {
+            localStorage.setItem("token", data.token);
+          }
+        }
+
         if (data && data.role === "admin") {
           navigate("/admin/dashboard");
         } else {
-          navigate("/"); // Redirect to the home page
+          navigate("/");
         }
       }
     } catch (err) {
@@ -59,11 +64,27 @@ function Login() {
             {error && <p className="text-red-500 text-sm text-center">{error}</p>}
             <div className="relative">
               <FaEnvelope className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type="email" name="email" placeholder="Email address" value={formData.email} onChange={handleChange} className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-indigo-blue focus:border-indigo-blue transition" required />
+              <input 
+                type="email" 
+                name="email" 
+                placeholder="Email address" 
+                value={formData.email} 
+                onChange={handleChange} 
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg text-gray-950 bg-white focus:ring-indigo-blue focus:border-indigo-blue transition" 
+                required 
+              />
             </div>
             <div className="relative">
               <FaLock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-              <input type={showPassword ? "text" : "password"} name="password" placeholder="Password" value={formData.password} onChange={handleChange} className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-indigo-blue focus:border-indigo-blue transition" required />
+              <input 
+                type={showPassword ? "text" : "password"} 
+                name="password" 
+                placeholder="Password" 
+                value={formData.password} 
+                onChange={handleChange} 
+                className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg text-gray-950 bg-white focus:ring-indigo-blue focus:border-indigo-blue transition" 
+                required 
+              />
               <span className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400" onClick={() => setShowPassword(!showPassword)}>
                 {showPassword ? <FaEyeSlash /> : <FaEye />}
               </span>
@@ -88,7 +109,6 @@ function Login() {
         </div>
       </div>
 
-      {/* Flight Background Image Section */}
       <div 
         className="hidden lg:block lg:w-1/2 bg-cover bg-center relative" 
         style={{ backgroundImage: "url('https://images.unsplash.com/photo-1436491865332-7a61a109cc05?q=80&w=1000&auto=format&fit=crop')" }}

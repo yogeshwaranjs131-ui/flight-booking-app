@@ -1,14 +1,13 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { FaPlane } from 'react-icons/fa';
 
 function PassengerDetails() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Receive flight, selectedSeats, and totalPrice from the previous page (FlightDetails)
   const { flight, selectedSeats, totalPrice } = location.state || {};
 
-  // Initialize an array of passenger objects based on the number of selected seats
   const [passengers, setPassengers] = useState(
     () => Array.from({ length: selectedSeats?.length || 0 }, () => ({
       name: '',
@@ -16,6 +15,7 @@ function PassengerDetails() {
       gender: 'Male',
     }))
   );
+  const [isProcessing, setIsProcessing] = useState(false); // 3D Cinematic Animation State
 
   const handleChange = (index, e) => {
     const updatedPassengers = passengers.map((passenger, i) => {
@@ -30,64 +30,116 @@ function PassengerDetails() {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Ensure flight object safely carries _id and flightId for backend validation
+    // Trigger Cinematic 3D Fly Animation
+    setIsProcessing(true);
+
     const sanitizedFlight = {
       ...flight,
       _id: flight?._id || flight?.id,
       flightId: flight?._id || flight?.id,
     };
 
-    // Calculate a safe fallback total price if totalPrice was somehow missing
     const finalTotalPrice = totalPrice || (selectedSeats?.length * 6500) || 6500;
 
-    // Navigate to the review page, passing totalPrice along with flight, selectedSeats, and passengers
-    navigate('/booking-review', {
-      state: { 
-        flight: sanitizedFlight, 
-        selectedSeats, 
-        passengers, 
-        totalPrice: finalTotalPrice 
-      },
-    });
+    // Navigate to next page after animation finishes (1.2 seconds)
+    setTimeout(() => {
+      navigate('/booking-review', {
+        state: { 
+          flight: sanitizedFlight, 
+          selectedSeats, 
+          passengers, 
+          totalPrice: finalTotalPrice 
+        },
+      });
+    }, 1200);
   };
 
   if (!flight || !selectedSeats || selectedSeats.length === 0) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-bold text-gray-800">Something went wrong</h2>
-        <p className="text-gray-600 mt-2">No flight or seat information was provided.</p>
-        <button onClick={() => navigate('/')} className="mt-4 bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-blue-800 transition-colors cursor-pointer">
-          Go to Home
+      <div className="fixed inset-0 w-screen h-screen bg-slate-950 text-white flex flex-col items-center justify-center z-50 p-4">
+        <h2 className="text-2xl font-bold mb-2">Something went wrong</h2>
+        <p className="text-slate-400 mb-6">No flight or seat information was provided.</p>
+        <button onClick={() => navigate('/')} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg cursor-pointer">
+          Go to Home ✈️
         </button>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto bg-white p-8 rounded-lg shadow-lg my-8">
-      <h2 className="text-3xl font-bold text-gray-800 mb-6">Passenger Details</h2>
-      <p className="text-gray-600 mb-8">
-        Please enter the details for the <strong>{selectedSeats.length}</strong> passenger(s).
-      </p>
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {passengers.map((passenger, index) => (
-          <div key={index} className="p-6 border border-gray-200 rounded-lg bg-gray-50">
-            <h4 className="text-xl font-semibold text-gray-700 mb-4">Passenger {index + 1} (Seat {selectedSeats[index]})</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <input type="text" name="name" placeholder="Full Name" value={passenger.name} onChange={(e) => handleChange(index, e)} className="md:col-span-2 mt-1 block w-full px-4 py-3 bg-white border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required />
-              <input type="number" name="age" placeholder="Age" value={passenger.age} onChange={(e) => handleChange(index, e)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500" required />
-              <select name="gender" value={passenger.gender} onChange={(e) => handleChange(index, e)} className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                <option>Male</option>
-                <option>Female</option>
-                <option>Other</option>
-              </select>
-            </div>
+    <div className="fixed inset-0 w-screen h-screen bg-slate-950 text-white p-4 md:p-8 overflow-y-auto z-50">
+      
+      {/* Cinematic 3D Flying Animation Overlay */}
+      {isProcessing && (
+        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl z-100 flex flex-col items-center justify-center overflow-hidden transition-all duration-1000">
+          <div className="relative animate-bounce">
+            <FaPlane className="text-6xl text-blue-400 transform -rotate-45 animate-pulse drop-shadow-[0_0_35px_rgba(59,130,246,0.8)]" />
           </div>
-        ))}
-        <button type="submit" className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors cursor-pointer">
-          Confirm and Proceed to Payment
-        </button>
-      </form>
+          <div className="mt-8 text-center">
+            <h2 className="text-3xl font-extrabold bg-linear-to-r from-blue-400 to-amber-200 bg-clip-text text-transparent animate-pulse">
+              Proceeding to Review... ✈️
+            </h2>
+            <p className="text-slate-400 mt-2 text-sm tracking-widest uppercase">Securing your passenger details</p>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-4xl mx-auto py-6 pb-12">
+        <div className="bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-white/15 p-6 md:p-8 shadow-2xl">
+          <h2 className="text-3xl font-extrabold bg-linear-to-r from-blue-400 to-amber-200 bg-clip-text text-transparent mb-2">
+            Passenger Details
+          </h2>
+          <p className="text-slate-400 mb-8">
+            Please enter the details for the <strong className="text-white">{selectedSeats.length}</strong> passenger(s).
+          </p>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {passengers.map((passenger, index) => (
+              <div key={index} className="p-6 bg-slate-950/60 rounded-2xl border border-white/10 shadow-lg">
+                <h4 className="text-lg font-semibold text-blue-400 mb-4">Passenger {index + 1} (Seat {selectedSeats[index]})</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <input 
+                    type="text" 
+                    name="name" 
+                    placeholder="Full Name" 
+                    value={passenger.name} 
+                    onChange={(e) => handleChange(index, e)} 
+                    className="md:col-span-2 px-4 py-3 bg-slate-900 text-white border border-white/20 rounded-xl shadow-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400" 
+                    required 
+                  />
+                  <input 
+                    type="number" 
+                    name="age" 
+                    placeholder="Age" 
+                    value={passenger.age} 
+                    onChange={(e) => handleChange(index, e)} 
+                    className="px-4 py-3 bg-slate-900 text-white border border-white/20 rounded-xl shadow-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400" 
+                    required 
+                  />
+                  <select 
+                    name="gender" 
+                    value={passenger.gender} 
+                    onChange={(e) => handleChange(index, e)} 
+                    className="md:col-span-3 px-4 py-3 bg-slate-900 text-white border border-white/20 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+            ))}
+
+            <button 
+              type="submit" 
+              disabled={isProcessing}
+              className="w-full py-4 px-4 rounded-xl shadow-lg text-lg font-bold text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all shadow-blue-600/40 cursor-pointer disabled:bg-slate-800 disabled:text-slate-500"
+            >
+              {isProcessing ? 'Processing...' : 'Confirm and Proceed to Payment ✈️'}
+            </button>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

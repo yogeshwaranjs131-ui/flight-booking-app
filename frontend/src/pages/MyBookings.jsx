@@ -70,95 +70,105 @@ function MyBookings() {
   }, [bookings, activeTab]);
 
   if (loading) {
-    return <Loader />;
+    return (
+      <div className="fixed inset-0 w-screen h-screen bg-slate-950 text-white flex items-center justify-center z-50">
+        <Loader />
+      </div>
+    );
   }
 
   if (error) {
-    return <p className="text-center text-red-500">{error}</p>;
+    return (
+      <div className="fixed inset-0 w-screen h-screen bg-slate-950 text-white flex items-center justify-center z-50">
+        <p className="text-center text-red-400 font-semibold text-lg">{error}</p>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-12 px-4">
-      <h2 className="text-3xl font-bold text-gray-800 mb-8 text-center">My Bookings</h2>
+    <div className="fixed inset-0 w-screen h-screen bg-slate-950 text-white p-4 md:p-8 overflow-y-auto z-50">
+      <div className="max-w-4xl mx-auto py-6">
+        <h2 className="text-3xl font-extrabold bg-linear-to-r from-blue-400 to-amber-200 bg-clip-text text-transparent mb-8 text-center">My Bookings</h2>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-8">
-        <div className="flex flex-col sm:flex-row gap-3 items-center">
-          <div className="relative flex-1 w-full">
-            <FaSearch className="absolute left-3 top-3.5 text-slate-400" />
-            <input
-              type="text"
-              value={pnrQuery}
-              onChange={(e) => setPnrQuery(e.target.value)}
-              placeholder="Check PNR Status"
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-600 focus:outline-none text-slate-800"
-            />
+        <div className="bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-white/15 p-6 shadow-2xl mb-8">
+          <div className="flex flex-col sm:flex-row gap-3 items-center">
+            <div className="relative flex-1 w-full">
+              <FaSearch className="absolute left-3.5 top-4 text-slate-400" />
+              <input
+                type="text"
+                value={pnrQuery}
+                onChange={(e) => setPnrQuery(e.target.value)}
+                placeholder="Check PNR Status"
+                className="w-full pl-10 pr-4 py-3 bg-slate-950 rounded-xl border border-white/20 focus:ring-2 focus:ring-blue-400 focus:outline-none text-white placeholder-slate-400"
+              />
+            </div>
+            <button
+              onClick={handlePnrLookup}
+              disabled={pnrLoading}
+              className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-semibold shadow-lg transition-all disabled:bg-slate-700 cursor-pointer w-full sm:w-auto"
+            >
+              {pnrLoading ? 'Checking...' : 'Live PNR Status'}
+            </button>
           </div>
+
+          {pnrError && (
+            <div className="mt-4 rounded-xl border border-red-500/30 bg-red-950/40 text-red-200 px-4 py-3">
+              {pnrError}
+            </div>
+          )}
+
+          {pnrBooking && (
+            <div className="mt-4 rounded-2xl border border-blue-400/30 bg-blue-950/30 p-4">
+              <div className="flex justify-between items-center gap-4 flex-wrap">
+                <div>
+                  <span className="text-xs uppercase font-bold tracking-wide text-blue-400">PNR Status</span>
+                  <div className="font-bold text-white mt-1">{pnrBooking.pnr}</div>
+                </div>
+                <span className={`px-4 py-2 rounded-full text-xs font-bold uppercase ${pnrBooking.status === 'CANCELLED' ? 'bg-red-900/50 text-red-300 border border-red-500/30' : 'bg-emerald-900/50 text-emerald-300 border border-emerald-500/30'}`}>Status: {pnrBooking.status}</span>
+              </div>
+              <div className="mt-3">
+                <Ticket booking={pnrBooking} onCancel={handleCancelBooking} />
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="mb-8 flex justify-center border-b border-white/10">
           <button
-            onClick={handlePnrLookup}
-            disabled={pnrLoading}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold shadow-md transition-all disabled:bg-slate-400"
+            onClick={() => setActiveTab('Upcoming')}
+            className={`px-6 py-3 font-semibold text-lg transition-colors cursor-pointer ${activeTab === 'Upcoming' ? 'border-b-2 border-blue-400 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}
           >
-            {pnrLoading ? 'Checking...' : 'Live PNR Status'}
+            Upcoming
+          </button>
+          <button
+            onClick={() => setActiveTab('Cancelled')}
+            className={`px-6 py-3 font-semibold text-lg transition-colors cursor-pointer ${activeTab === 'Cancelled' ? 'border-b-2 border-blue-400 text-blue-400' : 'text-slate-400 hover:text-slate-200'}`}
+          >
+            Cancelled
           </button>
         </div>
 
-        {pnrError && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 text-red-700 px-4 py-3">
-            {pnrError}
+        {filteredBookings && filteredBookings.length > 0 ? (
+          <div className="space-y-8 pb-12">
+            {filteredBookings.map((booking) => (
+              booking && booking._id ? (
+                <Ticket key={booking._id} booking={booking} onCancel={handleCancelBooking} />
+              ) : null
+            ))}
           </div>
-        )}
-
-        {pnrBooking && (
-          <div className="mt-4 rounded-2xl border border-indigo-100 bg-indigo-50 p-4">
-            <div className="flex justify-between items-center gap-4 flex-wrap">
-              <div>
-                <span className="text-xs uppercase font-bold tracking-wide text-indigo-700">PNR Status</span>
-                <div className="font-bold text-slate-900 mt-1">{pnrBooking.pnr}</div>
-              </div>
-              <span className={`px-4 py-2 rounded-full text-xs font-bold uppercase ${pnrBooking.status === 'CANCELLED' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>Status: {pnrBooking.status}</span>
-            </div>
-            <div className="mt-3">
-              <Ticket booking={pnrBooking} onCancel={handleCancelBooking} />
-            </div>
+        ) : (
+          <div className="text-center bg-slate-900/80 backdrop-blur-xl p-12 rounded-2xl border border-white/15 shadow-2xl">
+            <FaTicketAlt className="mx-auto text-5xl text-slate-500 mb-4" />
+            <h3 className="text-2xl font-semibold text-white mb-2">No {activeTab.toLowerCase()} bookings</h3>
+            <p className="text-slate-400 mb-6">It looks like you don't have any {activeTab.toLowerCase()} bookings right now.</p>
+            {activeTab === 'Upcoming' && (
+              <Link to="/" className="mt-4 inline-block bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-blue-600/40">
+                Find a Flight ✈️
+              </Link>
+            )}
           </div>
         )}
       </div>
-
-      <div className="mb-8 flex justify-center border-b border-gray-200">
-        <button
-          onClick={() => setActiveTab('Upcoming')}
-          className={`px-6 py-3 font-semibold text-lg transition-colors ${activeTab === 'Upcoming' ? 'border-b-2 border-indigo-blue text-indigo-blue' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Upcoming
-        </button>
-        <button
-          onClick={() => setActiveTab('Cancelled')}
-          className={`px-6 py-3 font-semibold text-lg transition-colors ${activeTab === 'Cancelled' ? 'border-b-2 border-indigo-blue text-indigo-blue' : 'text-gray-500 hover:text-gray-700'}`}
-        >
-          Cancelled
-        </button>
-      </div>
-
-      {filteredBookings && filteredBookings.length > 0 ? (
-        <div className="space-y-8">
-          {filteredBookings.map((booking) => (
-            booking && booking._id ? (
-              <Ticket key={booking._id} booking={booking} onCancel={handleCancelBooking} />
-            ) : null
-          ))}
-        </div>
-      ) : (
-        <div className="text-center bg-white p-12 rounded-lg shadow-md">
-          <FaTicketAlt className="mx-auto text-5xl text-gray-300 mb-4" />
-          <h3 className="text-2xl font-semibold text-gray-700 mb-2">No {activeTab.toLowerCase()} bookings</h3>
-          <p className="text-gray-500 mb-6">It looks like you don't have any {activeTab.toLowerCase()} bookings right now.</p>
-          {activeTab === 'Upcoming' && (
-            <Link to="/" className="mt-4 inline-block bg-indigo-accent text-white px-6 py-2 rounded-md hover:bg-pink-700 transition-colors">
-              Find a Flight
-            </Link>
-          )}
-        </div>
-      )}
     </div>
   );
 }

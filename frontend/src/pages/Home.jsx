@@ -1,131 +1,181 @@
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SearchForm from '../components/SearchForm';
-
-const royalFlightCarouselImages = [
-  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRN-23gqCcqF2ERNoNYOos9Cx4OFzmgc1Z-x_MyIuLlWQ&s=10',
-  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTG_59wSibE7wAR7ILcuDvfHKWBfpakXRQyhbA1AyMk0AesPCKlGdW766AC&s=10',
-  'https://cdn.pixabay.com/photo/2026/07/17/10/58/10-58-34-253_640.jpg',
-  'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQQCSQ-CXPEUYF-2O7ipKtAGP9lYs89cPiW9dFMWYYHaTs8dhvGk8BdVSM&s=10'
-];
-
-const popularDestinations = [
- { name: 'Goa', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80' },
- { name: 'Kerala', image: 'https://www.thomascook.in/blog//wp-content/uploads/2014/10/backwaters-in-Kerala.jpg' },
- { name: 'Delhi', image: 'https://images.unsplash.com/photo-1587474260584-136574528ed5?w=600&auto=format&fit=crop&q=80' },
- { name: 'Mumbai', image: 'https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=600&auto=format&fit=crop&q=80' },
-];
-
-const featuredDeals = [
- { from: 'Delhi', to: 'Goa', price: 4500, image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&auto=format&fit=crop&q=80' },
- { from: 'Mumbai', to: 'Kerala', price: 5200, image: 'https://media.istockphoto.com/id/860528756/photo/the-bandraworli-sea-link-mumbai-india.jpg?s=612x612&w=0&k=20&c=xT9TK7oYkP6TP62lHqP0H-9mfz9cWva4OcYEnt06cjc%3D' },
- { from: 'Bangalore', to: 'Jaipur', price: 6800, image: 'https://prod-bloom-website.s3.ap-southeast-1.amazonaws.com/content/1688638707115-1440x700.jpg' },
-];
+import gsap from 'gsap';
 
 function Home() {
   const navigate = useNavigate();
-  const [carouselIndex, setCarouselIndex] = useState(0);
+  const planeRef = useRef(null);
+  const heroContentRef = useRef(null);
+
+  // User state check (لogin status)
+  const [user, setUser] = useState(null);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCarouselIndex((index) => (index + 1) % royalFlightCarouselImages.length);
-    }, 2600);
-    return () => clearInterval(interval);
+    // localStorage அல்லது உங்கள் Auth state-ல் இருந்து யூசர் டேட்டாவை எடுக்கிறது
+    const storedUser = localStorage.getItem('user') || sessionStorage.getItem('user');
+    if (storedUser) {
+      try {
+        setUser(JSON.parse(storedUser));
+      } catch {
+        setUser({ name: 'User' });
+      }
+    }
   }, []);
 
-  const handleSearch = (searchParams) => {
-    navigate(`/search-flights?from=${searchParams.from}&to=${searchParams.to}&date=${searchParams.date}`);
+  const handleLogout = () => {
+    localStorage.removeItem('user');
+    sessionStorage.removeItem('user');
+    localStorage.removeItem('token');
+    setUser(null);
+    setDropdownOpen(false);
+    navigate('/');
   };
 
-  const handleImageError = (e) => {
-    e.target.onerror = null;
-    e.target.src = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='400'><rect width='100%' height='100%' fill='%23e5e7eb'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='20' fill='%236b7280'>Image Not Found</text></svg>";
+  const handleSearch = (searchParams) => {
+    if (!planeRef.current || !heroContentRef.current) {
+      navigate(`/search-flights?from=${searchParams.from}&to=${searchParams.to}&date=${searchParams.date}`);
+      return;
+    }
+
+    const tl = gsap.timeline();
+
+    tl.to(heroContentRef.current, {
+      y: -30,
+      opacity: 0,
+      duration: 0.5,
+      ease: "power2.in"
+    })
+    .to(planeRef.current, {
+      x: window.innerWidth + 600,
+      y: -500,
+      rotation: 20,
+      duration: 1.2,
+      ease: "power3.inOut"
+    }, "-=0.3")
+    .to("body", {
+      scale: 1.05,
+      opacity: 0,
+      duration: 0.3,
+      onComplete: () => {
+        navigate(`/search-flights?from=${searchParams.from}&to=${searchParams.to}&date=${searchParams.date}`);
+      }
+    });
   };
 
   return (
-    <div className="home-royal-page">
-      <section className="home-royal-hero">
-        <div className="home-hero-background" style={{ backgroundImage: `url('${royalFlightCarouselImages[carouselIndex]}')` }} />
-        <div className="home-hero-scrim" />
-        <div className="home-hero-content">
-          <span className="home-hero-tag">IndiGo Select • Royal Air Journey</span>
-          <h1>Find your next graceful escape</h1>
-          <p>Explore India with a curated airline experience built for comfort, speed and timeless journeys.</p>
-          <div className="home-hero-actions">
-            <button onClick={() => navigate('/search-flights')} className="home-hero-primary">Plan Your Flight</button>
-            <button onClick={() => navigate('/search-flights')} className="home-hero-secondary">View Destinations</button>
+    <div className="bg-slate-950 text-white w-screen h-screen relative overflow-hidden m-0 p-0 box-border flex flex-col justify-between">
+      
+      {/* Top Full-Width Navigation Bar */}
+      <div className="absolute top-0 left-0 w-full z-30 px-6 py-4 flex justify-between items-center bg-slate-950/40 backdrop-blur-md border-b border-white/10">
+        <div className="text-xl font-bold tracking-wider text-blue-400 flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
+          ✈️ AeroCinematic
+        </div>
+        <div className="flex items-center gap-3 md:gap-6">
+          <button 
+            onClick={() => navigate('/search-flights')} 
+            className="hover:text-blue-400 text-slate-200 text-sm font-semibold transition cursor-pointer"
+          >
+            ✈️ Flights
+          </button>
+          <button 
+            onClick={() => navigate('/search-flights')} 
+            className="hover:text-blue-400 text-slate-200 text-sm font-semibold transition cursor-pointer"
+          >
+            🏷️ Offers
+          </button>
+
+          {/* User Logged In Check */}
+          {user ? (
+            <div className="relative">
+              <button 
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs md:text-sm font-bold px-5 py-2 rounded-full transition border border-white/10 cursor-pointer flex items-center gap-2"
+              >
+                👤 Profile ▾
+              </button>
+
+              {/* Profile Dropdown Menu containing My Bookings & Logout */}
+              {dropdownOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-slate-900 border border-white/15 rounded-2xl shadow-2xl py-2 z-50 backdrop-blur-xl">
+                  <button 
+                    onClick={() => { setDropdownOpen(false); navigate('/my-bookings'); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-slate-200 hover:bg-blue-600/30 hover:text-blue-300 transition"
+                  >
+                    🎫 My Bookings
+                  </button>
+                  <button 
+                    onClick={() => { setDropdownOpen(false); navigate('/profile'); }}
+                    className="w-full text-left px-4 py-2.5 text-sm text-slate-200 hover:bg-blue-600/30 hover:text-blue-300 transition border-b border-white/10"
+                  >
+                    ⚙️ Account Settings
+                  </button>
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-red-600/20 hover:text-red-300 transition font-semibold"
+                  >
+                    🚪 Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <button 
+                onClick={() => navigate('/login')} 
+                className="bg-slate-800/80 hover:bg-slate-700 text-slate-200 text-xs md:text-sm font-bold px-5 py-2 rounded-full transition border border-white/10 cursor-pointer"
+              >
+                👤 Login
+              </button>
+              <button 
+                onClick={() => navigate('/register')} 
+                className="bg-blue-600 hover:bg-blue-500 text-white text-xs md:text-sm font-bold px-5 py-2 rounded-full transition shadow-lg shadow-blue-600/40 cursor-pointer"
+              >
+                📝 Register
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Full Screen Cinematic Hero Section */}
+      <div 
+        ref={heroContentRef}
+        className="relative w-full h-full bg-cover bg-center flex flex-col items-center justify-end pb-12 text-center px-4"
+        style={{ backgroundImage: "url('https://www.traveltrendstoday.in/storage/posts/c8c03a14b880e1993c74db74663b0cf1.jpg')" }}
+      >
+        <div className="absolute inset-0 bg-linear-to-t from-slate-950 via-slate-950/40 to-slate-950/70"></div>
+
+        <div className="relative z-10 w-full max-w-5xl mx-auto px-4 flex flex-col items-center">
+          
+          <span className="bg-blue-600/40 border border-blue-400/50 text-blue-200 text-xs md:text-sm font-bold uppercase tracking-widest px-4 py-1.5 rounded-full mb-3 inline-block shadow-lg backdrop-blur-md">
+            ✨ Cinematic 3D Flight & Glassmorphism
+          </span>
+          <h1 className="text-3xl md:text-5xl font-extrabold mb-3 leading-tight drop-shadow-2xl">
+            Find and Book Your <span className="bg-linear-to-r from-blue-400 via-amber-200 to-indigo-300 bg-clip-text text-transparent">Perfect Flight</span>
+          </h1>
+          <p className="text-slate-200 text-sm md:text-base mb-6 drop-shadow max-w-xl">
+            Explore the skies with immersive 3D motion graphics and smooth cinematic transitions.
+          </p>
+
+          {/* Search Form Box */}
+          <div className="w-full max-w-4xl bg-slate-900/85 backdrop-blur-3xl p-6 md:p-8 rounded-3xl border border-white/20 shadow-[0_25px_60px_rgba(0,0,0,0.9)] ring-1 ring-amber-200/20 text-white">
+            <SearchForm onSearch={handleSearch} />
           </div>
-          <div className="home-hero-stats">
-            <div>
-              <span className="stat-value">350+</span>
-              <span className="stat-label">Destinations</span>
-            </div>
-            <div>
-              <span className="stat-value">24/7</span>
-              <span className="stat-label">Support</span>
-            </div>
-            <div>
-              <span className="stat-value">₹499</span>
-              <span className="stat-label">Smart Fare</span>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      <section className="home-search-wrap">
-        <SearchForm onSearch={handleSearch} />
-      </section>
+        </div>
+      </div>
 
-      <section className="popular-destination-section">
-        <div className="section-heading-wrap center-heading">
-          <span className="section-kicker">Curated Experiences</span>
-          <h2>Explore Popular Destinations</h2>
-          <p>Fly to the most connected places and let every arrival feel like a royal welcome.</p>
-        </div>
-        <div className="destination-grid">
-          {popularDestinations.map((dest) => (
-            <div key={dest.name} className="destination-card">
-              <img src={dest.image} alt={dest.name} className="destination-image" onError={handleImageError} />
-              <div className="destination-overlay">
-                <span className="destination-name">{dest.name}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* Flying Airplane Graphic Element with Pikbest 3D Image for GSAP Animation */}
+      <div ref={planeRef} className="fixed bottom-20 -left-62.5 z-50 pointer-events-none">
+        <img 
+          src="https://img.pikbest.com/png-images/3d-flying-airplane-isolated-on-white-background_10648593.png!w700wp" 
+          alt="3D Flying Airplane" 
+          className="w-44 h-44 object-contain transform rotate-45 drop-shadow-[0_20px_40px_rgba(251,191,36,0.8)]"
+        />
+      </div>
 
-      <section className="featured-deals-section">
-        <div className="section-heading-wrap center-heading">
-          <span className="section-kicker">Special Fare Window</span>
-          <h2>Featured Deals</h2>
-          <p>Grab these limited-time offers before they disappear from the sky.</p>
-        </div>
-        <div className="featured-deals-grid">
-          {featuredDeals.map((deal, index) => (
-            <article key={index} className="deal-card">
-              <div className="deal-image-wrap">
-                <img src={deal.image} alt={`${deal.from} to ${deal.to}`} onError={handleImageError} />
-                <span className="deal-badge">Deal</span>
-              </div>
-              <div className="deal-content">
-                <h3>{deal.from} <span>→</span> {deal.to}</h3>
-                <p className="deal-fare">₹{deal.price.toLocaleString('en-IN')}</p>
-                <button className="deal-button" onClick={() => navigate(`/search-flights?from=${deal.from}&to=${deal.to}&date=`)}>
-                  Book Now
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="explore-section">
-        <div className="explore-inner">
-          <h2>Discover the world beyond the ordinary.</h2>
-          <p>Browse domestic and international routes crafted for a smoother takeoff.</p>
-          <button onClick={() => navigate('/search-flights')} className="explore-button">Explore All International Flights</button>
-        </div>
-      </section>
     </div>
   );
 }

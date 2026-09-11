@@ -1,21 +1,25 @@
 import User from '../models/User.js';
 
 /**
- * @desc    Get user profile
- * @route   GET /api/users/profile
+ * @desc    Update user profile image
+ * @route   POST /api/users/profile-image
  * @access  Private (requires token)
  */
-export const getUserProfile = async (req, res) => {
+export const uploadProfileImage = async (req, res) => {
   try {
-    // req.user will be set by the auth middleware
-    const user = await User.findById(req.user._id).select('-password');
+    const user = await User.findById(req.user._id);
 
     if (user) {
+      // Get image URL or path from the request body
+      user.profileImage = req.body.image || user.profileImage;
+      const updatedUser = await user.save();
+
       res.json({
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        profileImage: updatedUser.profileImage,
+        message: 'Profile image updated successfully',
       });
     } else {
       res.status(404);
@@ -25,5 +29,3 @@ export const getUserProfile = async (req, res) => {
     res.status(res.statusCode || 500).json({ message: error.message });
   }
 };
-
-// Other user-related functions like updateUserProfile can be added here.
