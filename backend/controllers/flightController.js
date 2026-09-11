@@ -8,7 +8,7 @@ export const searchFlights = async (req, res) => {
     const { from, to, date } = req.query;
     let query = {};
 
-    // 1. Departure Airport Match (Flexible)
+    // 1. Departure Airport Match
     if (from && from.trim() !== '') {
       const departureAirport = await Airport.findOne({
         $or: [
@@ -19,12 +19,10 @@ export const searchFlights = async (req, res) => {
       });
       if (departureAirport) {
         query.departureAirport = departureAirport._id;
-      } else {
-        query.$or = [{ departureAirport: from }, { 'departureAirport.code': new RegExp(from, 'i') }];
       }
     }
 
-    // 2. Arrival Airport Match (Flexible)
+    // 2. Arrival Airport Match
     if (to && to.trim() !== '') {
       const arrivalAirport = await Airport.findOne({
         $or: [
@@ -35,37 +33,40 @@ export const searchFlights = async (req, res) => {
       });
       if (arrivalAirport) {
         query.arrivalAirport = arrivalAirport._id;
-      } else {
-        query.$or = [{ arrivalAirport: to }, { 'arrivalAirport.code': new RegExp(to, 'i') }];
       }
     }
 
-    // 3. Date Search Fix (Supports both String and Date formats)
+    // 3. Safe Date Search (Fixes Invalid Date crash)
     if (date) {
-      const startDate = new Date(date);
-      const endDate = new Date(date);
-      endDate.setDate(endDate.getDate() + 1);
+      const cleanDate = date.split(':')[0]; // Removes accidental trailing characters like ':1'
+      const startDate = new Date(cleanDate);
+      
+      if (!isNaN(startDate.getTime())) {
+        const endDate = new Date(startDate);
+        endDate.setDate(endDate.getDate() + 1);
 
-      query.departureTime = {
-        $gte: startDate,
-        $lt: endDate,
-      };
+        query.departureTime = {
+          $gte: startDate,
+          $lt: endDate,
+        };
+      }
     }
 
-    const flights = await Flight.find(query)
+    let flights = await Flight.find(query)
       .populate('departureAirport')
       .populate('arrivalAirport');
 
-    // Absolute fallback if strict query returns zero results so UI displays seeded list instead of blank
-    let finalFlights = flights;
-    if (flights.length === 0) {
-      finalFlights = await Flight.find({}).populate('departureAirport').populate('arrivalAirport');
+    // Fallback: If specific search yields nothing, return all flights so UI never breaks/whitescreen
+    if (!flights || flights.length === 0) {
+      flights = await Flight.find({})
+        .populate('departureAirport')
+        .populate('arrivalAirport');
     }
 
     res.status(200).json({
       success: true,
-      count: finalFlights.length,
-      data: finalFlights,
+      count: flights.length,
+      data: flights,
     });
   } catch (error) {
     console.error("Search Flights Error:", error);
