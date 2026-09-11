@@ -1,5 +1,5 @@
 import Booking from '../models/Booking.js';
-import Flight from '../models/flight.js';
+import Flight from '../models/Flight.js';
 import sendEmail from '../utils/sendEmail.js';
 import generateTicketPDF from '../utils/generateTicketPDF.js';
 import { generatePNR } from '../utils/pnrUtils.js';
