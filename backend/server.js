@@ -14,7 +14,18 @@ connectDB();
 
 const app = express();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-app.use(cors());
+
+// CORS Configuration - அனைத்து டொமைன் மற்றும் ரிக்வெஸ்டுகளையும் அனுமதிக்கிறது
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
+
+// Preflight OPTIONS ரிக்வெஸ்டுகளுக்கு சரியாக ரெஸ்பான்ஸ் செய்ய
+app.options('*', cors());
+
 app.use(express.json());
 
 app.post('/api/create-payment-intent', async (req, res) => {
