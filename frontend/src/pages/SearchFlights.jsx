@@ -12,9 +12,8 @@ function SearchFlights() {
   const navigate = useNavigate();
   const queryParams = new URLSearchParams(location.search);
   
-  const [responseData, setResponseData] = useState(null);
+  const [responseData, setResponseData] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   const fromParam = (queryParams.get("from") || "").toUpperCase();
   const toParam = (queryParams.get("to") || "").toUpperCase();
@@ -28,20 +27,19 @@ function SearchFlights() {
   const [maxPrice, setMaxPrice] = useState(Number(queryParams.get('maxPrice')) || 100000);
   const [timeFilters, setTimeFilters] = useState(queryParams.get('times')?.split(',').filter(Boolean) || []);
 
-  // API Call - Only runs when search parameters change
   useEffect(() => {
     let isMounted = true;
     const fetchFlightsData = async () => {
       setLoading(true);
-      setError(null);
       try {
         const data = await flightService.searchFlights({ from: fromParam, to: toParam, date: dateParam });
         if (isMounted) {
-          setResponseData(data);
+          setResponseData(data || []);
         }
       } catch (err) {
         if (isMounted) {
-          setError(err.message || "Failed to fetch flights");
+          console.error("Flight Search Error:", err);
+          setResponseData([]);
         }
       } finally {
         if (isMounted) {
@@ -100,10 +98,7 @@ function SearchFlights() {
   };
 
   const handleClearFilters = () => {
-    setFilters({
-      airline: 'all',
-      stops: 'all',
-    });
+    setFilters({ airline: 'all', stops: 'all' });
     setSortBy('price');
     setTimeFilters([]);
     if (priceRange.max > 0) {
@@ -164,7 +159,6 @@ function SearchFlights() {
   return (
     <div className="min-h-screen bg-linear-to-b from-sky-400 via-sky-300 to-blue-500 text-slate-900 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header Section */}
         <div className="bg-white/80 backdrop-blur-xl p-6 rounded-2xl border border-white/40 shadow-2xl mb-8">
           <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
             <div>
@@ -189,7 +183,6 @@ function SearchFlights() {
           </div>
         </div>
 
-        {/* Main Content Grid */}
         <div className="flex flex-col lg:flex-row gap-8">
           <aside className="w-full lg:w-1/4">
             <div className="bg-white/80 backdrop-blur-xl p-6 rounded-2xl border border-white/40 shadow-2xl sticky top-6">
@@ -272,28 +265,19 @@ function SearchFlights() {
                 )}
 
                 <div className="space-y-6 pb-12">
-                  {error && (
-                    <div className="text-center bg-red-100 border border-red-300 text-red-800 p-8 rounded-2xl shadow-xl backdrop-blur-md">
-                      <FaExclamationCircle className="mx-auto text-4xl mb-4 text-red-500" />
-                      <p className="font-semibold text-lg">An error occurred while fetching flights.</p>
-                      <p className="text-sm text-red-600">{error}</p>
-                    </div>
-                  )}
-                  {!error && filteredAndSortedFlights && filteredAndSortedFlights.length > 0 ? (
+                  {filteredAndSortedFlights && filteredAndSortedFlights.length > 0 ? (
                     filteredAndSortedFlights.map((flight) => <FlightCard key={flight._id || flight.id} flight={flight} />)
                   ) : (
-                    !error && (
-                      <div className="text-center bg-white/80 backdrop-blur-xl p-12 rounded-2xl border border-white/40 shadow-2xl">
-                        <h3 className="text-2xl font-bold text-slate-900 mb-2">No flights found</h3>
-                        <p className="text-slate-600 mb-6">We couldn't find any flights matching your search criteria. Please try different airports or dates.</p>
-                        <button
-                          onClick={() => navigate('/')}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg cursor-pointer"
-                        >
-                          Book Another Flight ✈️
-                        </button>
-                      </div>
-                    )
+                    <div className="text-center bg-white/80 backdrop-blur-xl p-12 rounded-2xl border border-white/40 shadow-2xl">
+                      <h3 className="text-2xl font-bold text-slate-900 mb-2">No flights found</h3>
+                      <p className="text-slate-600 mb-6">We couldn't find any flights matching your search criteria. Please try different airports or dates.</p>
+                      <button
+                        onClick={() => navigate('/')}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg cursor-pointer"
+                      >
+                        Book Another Flight ✈️
+                      </button>
+                    </div>
                   )}
                 </div>
               </>
