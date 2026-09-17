@@ -1,143 +1,789 @@
-import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { FaPlane } from 'react-icons/fa';
+import React, { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import {
+  FaPlane,
+  FaArrowLeft,
+  FaUser,
+  FaCheckCircle,
+} from "react-icons/fa";
 
 function PassengerDetails() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { flight, selectedSeats, totalPrice } = location.state || {};
+  // ============================================================
+  // GET DATA FROM FLIGHT DETAILS PAGE
+  // ============================================================
 
-  const [passengers, setPassengers] = useState(
-    () => Array.from({ length: selectedSeats?.length || 0 }, () => ({
-      name: '',
-      age: '',
-      gender: 'Male',
-    }))
+  const {
+    flight,
+    selectedSeats = [],
+    totalPrice = 0,
+  } = location.state || {};
+
+  // ============================================================
+  // PASSENGER STATE
+  // ============================================================
+
+  const [passengers, setPassengers] = useState(() =>
+    Array.from(
+      {
+        length: selectedSeats?.length || 0,
+      },
+      () => ({
+        name: "",
+        age: "",
+        gender: "Male",
+      })
+    )
   );
-  const [isProcessing, setIsProcessing] = useState(false); // 3D Cinematic Animation State
+
+  const [isProcessing, setIsProcessing] =
+    useState(false);
+
+  // ============================================================
+  // HANDLE INPUT
+  // ============================================================
 
   const handleChange = (index, e) => {
-    const updatedPassengers = passengers.map((passenger, i) => {
-      if (i === index) {
-        return { ...passenger, [e.target.name]: e.target.value };
-      }
-      return passenger;
-    });
-    setPassengers(updatedPassengers);
+    const { name, value } = e.target;
+
+    setPassengers((previousPassengers) =>
+      previousPassengers.map(
+        (passenger, passengerIndex) =>
+          passengerIndex === index
+            ? {
+                ...passenger,
+                [name]: value,
+              }
+            : passenger
+      )
+    );
   };
+
+  // ============================================================
+  // VALIDATE PASSENGERS
+  // ============================================================
+
+  const validatePassengers = () => {
+    for (
+      let index = 0;
+      index < passengers.length;
+      index++
+    ) {
+      const passenger = passengers[index];
+
+      if (!passenger.name.trim()) {
+        alert(
+          `Please enter Passenger ${
+            index + 1
+          } name.`
+        );
+        return false;
+      }
+
+      const age = Number(passenger.age);
+
+      if (!age || age < 1 || age > 120) {
+        alert(
+          `Please enter a valid age for Passenger ${
+            index + 1
+          }.`
+        );
+        return false;
+      }
+
+      if (!passenger.gender) {
+        alert(
+          `Please select gender for Passenger ${
+            index + 1
+          }.`
+        );
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  // ============================================================
+  // SUBMIT
+  // ============================================================
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    // Trigger Cinematic 3D Fly Animation
+
+    if (!validatePassengers()) {
+      return;
+    }
+
+    if (!flight) {
+      alert(
+        "Flight information is missing. Please select the flight again."
+      );
+      return;
+    }
+
+    if (
+      !Array.isArray(selectedSeats) ||
+      selectedSeats.length === 0
+    ) {
+      alert(
+        "Seat information is missing. Please select your seats again."
+      );
+      return;
+    }
+
+    const flightId =
+      flight?._id ||
+      flight?.id ||
+      flight?.flightId;
+
+    if (!flightId) {
+      alert(
+        "Flight ID is missing. Please try again."
+      );
+      return;
+    }
+
+    // ========================================================
+    // KEEP CINEMATIC STATE
+    // ========================================================
+
     setIsProcessing(true);
+
+    // ========================================================
+    // SANITIZE FLIGHT
+    // ========================================================
 
     const sanitizedFlight = {
       ...flight,
-      _id: flight?._id || flight?.id,
-      flightId: flight?._id || flight?.id,
+      _id: flightId,
+      id: flightId,
+      flightId,
     };
 
-    const finalTotalPrice = totalPrice || (selectedSeats?.length * 6500) || 6500;
+    // ========================================================
+    // IMPORTANT
+    // NO ARTIFICIAL 1.2 SECOND DELAY
+    // ========================================================
 
-    // Navigate to next page after animation finishes (1.2 seconds)
-    setTimeout(() => {
-      navigate('/booking-review', {
-        state: { 
-          flight: sanitizedFlight, 
-          selectedSeats, 
-          passengers, 
-          totalPrice: finalTotalPrice 
-        },
-      });
-    }, 1200);
+    navigate("/booking-review", {
+      state: {
+        flight: sanitizedFlight,
+        selectedSeats,
+        passengers,
+        totalPrice: Number(totalPrice) || 0,
+      },
+    });
   };
 
-  if (!flight || !selectedSeats || selectedSeats.length === 0) {
+  // ============================================================
+  // BACK
+  // ============================================================
+
+  const handleBack = () => {
+    navigate(-1);
+  };
+
+  // ============================================================
+  // MISSING DATA PROTECTION
+  // ============================================================
+
+  if (
+    !flight ||
+    !Array.isArray(selectedSeats) ||
+    selectedSeats.length === 0
+  ) {
     return (
-      <div className="fixed inset-0 w-screen h-screen bg-slate-950 text-white flex flex-col items-center justify-center z-50 p-4">
-        <h2 className="text-2xl font-bold mb-2">Something went wrong</h2>
-        <p className="text-slate-400 mb-6">No flight or seat information was provided.</p>
-        <button onClick={() => navigate('/')} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg cursor-pointer">
-          Go to Home ✈️
-        </button>
+      <div className="min-h-screen w-full bg-slate-950 text-white flex items-center justify-center p-6">
+
+        <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-slate-900/90 p-8 text-center shadow-2xl">
+
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/10">
+            <span className="text-3xl">
+              ⚠️
+            </span>
+          </div>
+
+          <h2 className="mb-3 text-2xl font-bold">
+            Booking Information Missing
+          </h2>
+
+          <p className="mb-7 text-slate-400">
+            No flight or seat information was
+            provided. Please select a flight and
+            seat again.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="
+              rounded-xl
+              bg-blue-600
+              px-6
+              py-3
+              font-bold
+              text-white
+              shadow-lg
+              shadow-blue-600/20
+              transition
+              hover:bg-blue-500
+            "
+          >
+            Go to Home ✈️
+          </button>
+
+        </div>
       </div>
     );
   }
 
+  // ============================================================
+  // FLIGHT DISPLAY DATA
+  // ============================================================
+
+  const fromCode =
+    flight?.departureAirport?.airportCode ||
+    flight?.departureAirport?.code ||
+    flight?.from ||
+    "N/A";
+
+  const toCode =
+    flight?.arrivalAirport?.airportCode ||
+    flight?.arrivalAirport?.code ||
+    flight?.to ||
+    "N/A";
+
+  const airline =
+    flight?.airline || "Airline";
+
+  const flightNumber =
+    flight?.flightNumber || "Flight";
+
+  // ============================================================
+  // TOTAL
+  // ============================================================
+
+  const bookingTotal =
+    Number(totalPrice) || 0;
+
+  // ============================================================
+  // UI
+  // ============================================================
+
   return (
-    <div className="fixed inset-0 w-screen h-screen bg-slate-950 text-white p-4 md:p-8 overflow-y-auto z-50">
-      
-      {/* Cinematic 3D Flying Animation Overlay */}
+    <div className="min-h-screen w-full bg-slate-950 text-white px-4 py-6 md:px-8 md:py-8">
+
+      {/* ========================================================
+          CINEMATIC PROCESSING OVERLAY
+      ======================================================== */}
+
       {isProcessing && (
-        <div className="fixed inset-0 bg-slate-950/90 backdrop-blur-2xl z-100 flex flex-col items-center justify-center overflow-hidden transition-all duration-1000">
-          <div className="relative animate-bounce">
-            <FaPlane className="text-6xl text-blue-400 transform -rotate-45 animate-pulse drop-shadow-[0_0_35px_rgba(59,130,246,0.8)]" />
+        <div className="fixed inset-0 z-100 flex flex-col items-center justify-center overflow-hidden bg-slate-950/95 backdrop-blur-xl">
+
+          <div className="relative">
+
+            <div className="absolute inset-0 rounded-full bg-blue-500/20 blur-3xl" />
+
+            <FaPlane
+              className="
+                relative
+                text-7xl
+                -rotate-45
+                animate-pulse
+                text-blue-400
+                drop-shadow-[0_0_35px_rgba(59,130,246,0.8)]
+              "
+            />
+
           </div>
+
           <div className="mt-8 text-center">
-            <h2 className="text-3xl font-extrabold bg-linear-to-r from-blue-400 to-amber-200 bg-clip-text text-transparent animate-pulse">
-              Proceeding to Review... ✈️
+
+            <h2 className="bg-linear-to-r from-blue-400 to-amber-200 bg-clip-text text-3xl font-extrabold text-transparent md:text-4xl">
+              Preparing Your Review... ✈️
             </h2>
-            <p className="text-slate-400 mt-2 text-sm tracking-widest uppercase">Securing your passenger details</p>
+
+            <p className="mt-3 text-sm uppercase tracking-widest text-slate-400">
+              Opening booking review
+            </p>
+
           </div>
+
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto py-6 pb-12">
-        <div className="bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-white/15 p-6 md:p-8 shadow-2xl">
-          <h2 className="text-3xl font-extrabold bg-linear-to-r from-blue-400 to-amber-200 bg-clip-text text-transparent mb-2">
-            Passenger Details
-          </h2>
-          <p className="text-slate-400 mb-8">
-            Please enter the details for the <strong className="text-white">{selectedSeats.length}</strong> passenger(s).
-          </p>
+      {/* ========================================================
+          MAIN CONTAINER
+      ======================================================== */}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {passengers.map((passenger, index) => (
-              <div key={index} className="p-6 bg-slate-950/60 rounded-2xl border border-white/10 shadow-lg">
-                <h4 className="text-lg font-semibold text-blue-400 mb-4">Passenger {index + 1} (Seat {selectedSeats[index]})</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <input 
-                    type="text" 
-                    name="name" 
-                    placeholder="Full Name" 
-                    value={passenger.name} 
-                    onChange={(e) => handleChange(index, e)} 
-                    className="md:col-span-2 px-4 py-3 bg-slate-900 text-white border border-white/20 rounded-xl shadow-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400" 
-                    required 
-                  />
-                  <input 
-                    type="number" 
-                    name="age" 
-                    placeholder="Age" 
-                    value={passenger.age} 
-                    onChange={(e) => handleChange(index, e)} 
-                    className="px-4 py-3 bg-slate-900 text-white border border-white/20 rounded-xl shadow-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-400" 
-                    required 
-                  />
-                  <select 
-                    name="gender" 
-                    value={passenger.gender} 
-                    onChange={(e) => handleChange(index, e)} 
-                    className="md:col-span-3 px-4 py-3 bg-slate-900 text-white border border-white/20 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 cursor-pointer"
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
+      <div className="mx-auto w-full max-w-4xl pb-12">
+
+        {/* ======================================================
+            BACK
+        ====================================================== */}
+
+        <button
+          type="button"
+          onClick={handleBack}
+          disabled={isProcessing}
+          className="
+            mb-6
+            inline-flex
+            items-center
+            gap-2
+            rounded-xl
+            border
+            border-white/10
+            bg-white/5
+            px-4
+            py-2.5
+            text-sm
+            font-semibold
+            text-slate-200
+            transition
+            hover:bg-white/10
+            disabled:cursor-not-allowed
+            disabled:opacity-50
+          "
+        >
+          <FaArrowLeft />
+          Back to Flight Details
+        </button>
+
+        {/* ======================================================
+            HEADER
+        ====================================================== */}
+
+        <div className="mb-6 overflow-hidden rounded-3xl border border-white/10 bg-slate-900/80 shadow-2xl backdrop-blur-xl">
+
+          <div className="bg-linear-to-r from-blue-700 via-indigo-700 to-blue-800 p-6 md:p-8">
+
+            <p className="mb-2 text-sm font-semibold uppercase tracking-widest text-blue-100">
+              Passenger Information
+            </p>
+
+            <h1 className="text-3xl font-extrabold md:text-4xl">
+              Passenger Details
+            </h1>
+
+            <p className="mt-2 text-sm text-blue-100">
+              Enter the details exactly as they
+              appear on the passenger's travel
+              document.
+            </p>
+
+          </div>
+
+          {/* ====================================================
+              FLIGHT SUMMARY
+          ==================================================== */}
+
+          <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-3">
+
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+
+              <p className="text-xs uppercase tracking-wider text-slate-500">
+                Airline
+              </p>
+
+              <p className="mt-1 font-bold">
+                {airline}
+              </p>
+
+              <p className="text-sm text-slate-400">
+                {flightNumber}
+              </p>
+
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+
+              <p className="text-xs uppercase tracking-wider text-slate-500">
+                Route
+              </p>
+
+              <p className="mt-1 text-lg font-bold">
+                {fromCode}
+                <span className="mx-2 text-blue-400">
+                  →
+                </span>
+                {toCode}
+              </p>
+
+            </div>
+
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+
+              <p className="text-xs uppercase tracking-wider text-slate-500">
+                Selected Seats
+              </p>
+
+              <p className="mt-1 font-bold text-blue-400">
+                {selectedSeats.join(", ")}
+              </p>
+
+            </div>
+
+          </div>
+        </div>
+
+        {/* ======================================================
+            PASSENGER FORM
+        ====================================================== */}
+
+        <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl backdrop-blur-xl md:p-8">
+
+          <div className="mb-8">
+
+            <h2 className="text-2xl font-bold">
+              Traveller Information
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-400">
+              Please enter details for{" "}
+              <strong className="text-white">
+                {selectedSeats.length}
+              </strong>{" "}
+              passenger
+              {selectedSeats.length > 1
+                ? "s"
+                : ""}.
+            </p>
+
+          </div>
+
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-6"
+          >
+
+            {/* ==================================================
+                PASSENGERS
+            ================================================== */}
+
+            {passengers.map(
+              (passenger, index) => (
+                <div
+                  key={`${selectedSeats[index]}-${index}`}
+                  className="
+                    rounded-2xl
+                    border
+                    border-white/10
+                    bg-slate-950/70
+                    p-5
+                    shadow-lg
+                    md:p-6
+                  "
+                >
+
+                  {/* Passenger Header */}
+
+                  <div className="mb-5 flex items-center justify-between">
+
+                    <div className="flex items-center gap-3">
+
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600/20 text-blue-400">
+
+                        <FaUser />
+
+                      </div>
+
+                      <div>
+
+                        <h3 className="font-bold text-white">
+                          Passenger{" "}
+                          {index + 1}
+                        </h3>
+
+                        <p className="text-xs text-slate-500">
+                          Seat{" "}
+                          {selectedSeats[index]}
+                        </p>
+
+                      </div>
+
+                    </div>
+
+                    <div className="rounded-lg border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs font-bold text-blue-300">
+                      Seat {selectedSeats[index]}
+                    </div>
+
+                  </div>
+
+                  {/* Fields */}
+
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+
+                    {/* NAME */}
+
+                    <div className="md:col-span-2">
+
+                      <label
+                        htmlFor={`name-${index}`}
+                        className="mb-2 block text-sm font-semibold text-slate-300"
+                      >
+                        Full Name
+                      </label>
+
+                      <input
+                        id={`name-${index}`}
+                        type="text"
+                        name="name"
+                        placeholder="Enter full name"
+                        value={passenger.name}
+                        onChange={(e) =>
+                          handleChange(
+                            index,
+                            e
+                          )
+                        }
+                        autoComplete="name"
+                        required
+                        disabled={isProcessing}
+                        className="
+                          w-full
+                          rounded-xl
+                          border
+                          border-white/10
+                          bg-slate-900
+                          px-4
+                          py-3
+                          text-white
+                          outline-none
+                          placeholder:text-slate-600
+                          transition
+                          focus:border-blue-400
+                          focus:ring-2
+                          focus:ring-blue-400/20
+                          disabled:cursor-not-allowed
+                          disabled:opacity-60
+                        "
+                      />
+
+                    </div>
+
+                    {/* AGE */}
+
+                    <div>
+
+                      <label
+                        htmlFor={`age-${index}`}
+                        className="mb-2 block text-sm font-semibold text-slate-300"
+                      >
+                        Age
+                      </label>
+
+                      <input
+                        id={`age-${index}`}
+                        type="number"
+                        name="age"
+                        min="1"
+                        max="120"
+                        placeholder="Age"
+                        value={passenger.age}
+                        onChange={(e) =>
+                          handleChange(
+                            index,
+                            e
+                          )
+                        }
+                        required
+                        disabled={isProcessing}
+                        className="
+                          w-full
+                          rounded-xl
+                          border
+                          border-white/10
+                          bg-slate-900
+                          px-4
+                          py-3
+                          text-white
+                          outline-none
+                          placeholder:text-slate-600
+                          transition
+                          focus:border-blue-400
+                          focus:ring-2
+                          focus:ring-blue-400/20
+                          disabled:cursor-not-allowed
+                          disabled:opacity-60
+                        "
+                      />
+
+                    </div>
+
+                    {/* GENDER */}
+
+                    <div className="md:col-span-3">
+
+                      <label
+                        htmlFor={`gender-${index}`}
+                        className="mb-2 block text-sm font-semibold text-slate-300"
+                      >
+                        Gender
+                      </label>
+
+                      <select
+                        id={`gender-${index}`}
+                        name="gender"
+                        value={passenger.gender}
+                        onChange={(e) =>
+                          handleChange(
+                            index,
+                            e
+                          )
+                        }
+                        disabled={isProcessing}
+                        className="
+                          w-full
+                          cursor-pointer
+                          rounded-xl
+                          border
+                          border-white/10
+                          bg-slate-900
+                          px-4
+                          py-3
+                          text-white
+                          outline-none
+                          transition
+                          focus:border-blue-400
+                          focus:ring-2
+                          focus:ring-blue-400/20
+                          disabled:cursor-not-allowed
+                          disabled:opacity-60
+                        "
+                      >
+                        <option value="Male">
+                          Male
+                        </option>
+
+                        <option value="Female">
+                          Female
+                        </option>
+
+                        <option value="Other">
+                          Other
+                        </option>
+                      </select>
+
+                    </div>
+
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
 
-            <button 
-              type="submit" 
+            {/* ==================================================
+                PRICE SUMMARY
+            ================================================== */}
+
+            <div className="rounded-2xl border border-blue-400/20 bg-blue-500/5 p-5">
+
+              <div className="flex items-center justify-between">
+
+                <div>
+
+                  <p className="text-sm text-slate-400">
+                    Total Booking Amount
+                  </p>
+
+                  <p className="mt-1 text-3xl font-extrabold text-blue-400">
+                    ₹
+                    {bookingTotal.toLocaleString(
+                      "en-IN"
+                    )}
+                  </p>
+
+                </div>
+
+                <FaCheckCircle className="text-3xl text-emerald-400" />
+
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+
+                {selectedSeats.map(
+                  (seat) => (
+                    <span
+                      key={seat}
+                      className="
+                        rounded-lg
+                        border
+                        border-white/10
+                        bg-white/5
+                        px-3
+                        py-1.5
+                        text-xs
+                        font-semibold
+                        text-slate-300
+                      "
+                    >
+                      Seat {seat}
+                    </span>
+                  )
+                )}
+
+              </div>
+
+            </div>
+
+            {/* ==================================================
+                SUBMIT
+            ================================================== */}
+
+            <button
+              type="submit"
               disabled={isProcessing}
-              className="w-full py-4 px-4 rounded-xl shadow-lg text-lg font-bold text-white bg-blue-600 hover:bg-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all shadow-blue-600/40 cursor-pointer disabled:bg-slate-800 disabled:text-slate-500"
+              className="
+                flex
+                w-full
+                items-center
+                justify-center
+                gap-3
+                rounded-xl
+                bg-linear-to-r
+                from-blue-600
+                to-indigo-600
+                px-6
+                py-4
+                text-lg
+                font-bold
+                text-white
+                shadow-xl
+                shadow-blue-600/20
+                transition
+                hover:from-blue-500
+                hover:to-indigo-500
+                disabled:cursor-not-allowed
+                disabled:from-slate-800
+                disabled:to-slate-800
+                disabled:text-slate-500
+              "
             >
-              {isProcessing ? 'Processing...' : 'Confirm and Proceed to Payment ✈️'}
+
+              {isProcessing ? (
+                <>
+                  <FaPlane className="-rotate-45 animate-pulse" />
+                  Opening Booking Review...
+                </>
+              ) : (
+                <>
+                  Confirm & Proceed to Review
+                  <FaPlane className="-rotate-45" />
+                </>
+              )}
+
             </button>
+
+            <p className="text-center text-xs text-slate-500">
+              Please verify all passenger details
+              before continuing.
+            </p>
+
           </form>
+
         </div>
       </div>
     </div>

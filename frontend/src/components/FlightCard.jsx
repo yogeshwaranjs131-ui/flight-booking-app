@@ -11,9 +11,14 @@ import {
 function FlightCard({ flight }) {
   const navigate = useNavigate();
 
+  if (!flight) {
+    return null;
+  }
+
   // ============================================================
   // FORMAT TIME
   // ============================================================
+
   const formatTime = (dateString) => {
     if (!dateString) return "--:--";
 
@@ -33,6 +38,7 @@ function FlightCard({ flight }) {
   // ============================================================
   // FORMAT DATE
   // ============================================================
+
   const formatFlightDate = (dateString) => {
     if (!dateString) return "";
 
@@ -53,9 +59,10 @@ function FlightCard({ flight }) {
   // ============================================================
   // CALCULATE DURATION
   // ============================================================
+
   const calculateDuration = (departure, arrival) => {
     if (!departure || !arrival) {
-      return "2h 30m";
+      return "Duration unavailable";
     }
 
     const departureDate = new Date(departure);
@@ -65,11 +72,13 @@ function FlightCard({ flight }) {
       Number.isNaN(departureDate.getTime()) ||
       Number.isNaN(arrivalDate.getTime())
     ) {
-      return "2h 30m";
+      return "Duration unavailable";
     }
 
     const difference =
-      Math.abs(arrivalDate.getTime() - departureDate.getTime()) / 1000;
+      Math.abs(
+        arrivalDate.getTime() - departureDate.getTime()
+      ) / 1000;
 
     const hours = Math.floor(difference / 3600);
     const minutes = Math.floor((difference % 3600) / 60);
@@ -80,90 +89,110 @@ function FlightCard({ flight }) {
   // ============================================================
   // AIRPORT INFORMATION
   // ============================================================
-  const departureAirport = flight?.departureAirport || {};
-  const arrivalAirport = flight?.arrivalAirport || {};
+
+  const departureAirport =
+    flight.departureAirport || {};
+
+  const arrivalAirport =
+    flight.arrivalAirport || {};
 
   const departureCity =
     departureAirport.city ||
-    flight?.fromCity ||
-    flight?.from ||
+    flight.fromCity ||
+    flight.from ||
     "Origin";
 
   const arrivalCity =
     arrivalAirport.city ||
-    flight?.toCity ||
-    flight?.to ||
+    flight.toCity ||
+    flight.to ||
     "Destination";
 
   const departureCode =
     departureAirport.airportCode ||
     departureAirport.code ||
-    flight?.from ||
+    flight.from ||
     "DEP";
 
   const arrivalCode =
     arrivalAirport.airportCode ||
     arrivalAirport.code ||
-    flight?.to ||
+    flight.to ||
     "ARR";
+
+  // IMPORTANT:
+  // Backend Airport model uses airportName, not name
+
+  const departureAirportName =
+    departureAirport.airportName ||
+    departureAirport.name ||
+    "";
+
+  const arrivalAirportName =
+    arrivalAirport.airportName ||
+    arrivalAirport.name ||
+    "";
 
   // ============================================================
   // FLIGHT INFORMATION
   // ============================================================
-  const airline = flight?.airline || "International Airline";
+
+  const airline =
+    flight.airline || "International Airline";
 
   const flightNumber =
-    flight?.flightNumber ||
-    flight?.flightCode ||
+    flight.flightNumber ||
+    flight.flightCode ||
     "FL-001";
 
-  const price = Number(flight?.price) || 0;
+  const price =
+    Number(flight.price) || 0;
 
   const availableSeats =
-    flight?.availableSeats ??
-    flight?.totalSeats ??
+    flight.availableSeats ??
+    flight.totalSeats ??
     0;
 
   const stops =
-    flight?.stops === undefined ||
-    flight?.stops === null ||
-    flight?.stops === 0 ||
-    flight?.stops === "0"
+    flight.stops === undefined ||
+    flight.stops === null ||
+    flight.stops === 0 ||
+    flight.stops === "0"
       ? 0
       : Number(flight.stops);
 
+  // Backend already provides duration.
+  // If not available, calculate it.
+
+  const duration =
+    flight.duration ||
+    calculateDuration(
+      flight.departureTime,
+      flight.arrivalTime
+    );
+
   // ============================================================
-  // BOOK NOW
+  // NAVIGATION
   // ============================================================
-  const handleBookClick = () => {
-    const flightId = flight?._id || flight?.id;
+
+  const handleFlightDetails = () => {
+    const flightId =
+      flight._id || flight.id;
 
     if (!flightId) {
-      console.error("Flight ID not found:", flight);
-      alert("Flight information is incomplete. Please try again.");
+      console.error(
+        "Flight ID not found:",
+        flight
+      );
+
+      alert(
+        "Flight information is incomplete. Please try again."
+      );
+
       return;
     }
 
-    // Immediate navigation - no artificial delay
-    navigate(`/flight-details/${flightId}`, {
-      state: {
-        flight,
-      },
-    });
-  };
-
-  // ============================================================
-  // VIEW DETAILS
-  // ============================================================
-  const handleViewDetails = () => {
-    const flightId = flight?._id || flight?.id;
-
-    if (!flightId) {
-      console.error("Flight ID not found:", flight);
-      alert("Flight information is incomplete. Please try again.");
-      return;
-    }
-
+    // Immediate navigation
     navigate(`/flight-details/${flightId}`, {
       state: {
         flight,
@@ -188,9 +217,11 @@ function FlightCard({ flight }) {
         hover:shadow-blue-900/30
       "
     >
+
       {/* ======================================================
-          TOP INFORMATION BAR
+          TOP BAR
       ====================================================== */}
+
       <div
         className="
           flex
@@ -205,8 +236,11 @@ function FlightCard({ flight }) {
           sm:justify-between
         "
       >
+
         {/* Airline */}
+
         <div className="flex items-center gap-3">
+
           <div
             className="
               flex
@@ -239,23 +273,31 @@ function FlightCard({ flight }) {
               {flightNumber}
             </p>
           </div>
+
         </div>
 
-        {/* Flight Date */}
+        {/* Date */}
+
         <div className="text-left sm:text-right">
+
           <p className="text-xs uppercase tracking-wider text-slate-500">
             Travel Date
           </p>
 
           <p className="text-sm font-semibold text-slate-200">
-            {formatFlightDate(flight?.departureTime)}
+            {formatFlightDate(
+              flight.departureTime
+            )}
           </p>
+
         </div>
+
       </div>
 
       {/* ======================================================
-          MAIN FLIGHT INFORMATION
+          MAIN FLIGHT
       ====================================================== */}
+
       <div
         className="
           grid
@@ -267,12 +309,15 @@ function FlightCard({ flight }) {
           md:items-center
         "
       >
-        {/* ====================================================
-            DEPARTURE
-        ==================================================== */}
+
+        {/* DEPARTURE */}
+
         <div className="text-center md:text-left">
+
           <p className="text-3xl font-extrabold tracking-tight text-white">
-            {formatTime(flight?.departureTime)}
+            {formatTime(
+              flight.departureTime
+            )}
           </p>
 
           <p className="mt-1 text-xl font-bold text-blue-400">
@@ -283,33 +328,30 @@ function FlightCard({ flight }) {
             {departureCity}
           </p>
 
-          {departureAirport.name && (
+          {departureAirportName && (
             <p className="mt-1 text-xs text-slate-500">
-              {departureAirport.name}
+              {departureAirportName}
             </p>
           )}
+
         </div>
 
-        {/* ====================================================
-            FLIGHT ROUTE
-        ==================================================== */}
+        {/* ROUTE */}
+
         <div className="flex flex-col items-center">
+
           <div className="mb-2 flex items-center gap-2 text-xs text-slate-400">
             <FaClock />
 
             <span>
-              {calculateDuration(
-                flight?.departureTime,
-                flight?.arrivalTime
-              )}
+              {duration}
             </span>
           </div>
 
           <div className="flex w-full min-w-45 items-center">
-            {/* Left line */}
+
             <div className="h-px flex-1 bg-blue-400/40" />
 
-            {/* Plane */}
             <div
               className="
                 mx-3
@@ -333,11 +375,12 @@ function FlightCard({ flight }) {
               />
             </div>
 
-            {/* Right line */}
             <div className="h-px flex-1 bg-blue-400/40" />
+
           </div>
 
-          {/* Stops */}
+          {/* STOPS */}
+
           <div
             className={`
               mt-2
@@ -355,16 +398,21 @@ function FlightCard({ flight }) {
           >
             {stops === 0
               ? "Direct Flight"
-              : `${stops} Stop${stops > 1 ? "s" : ""}`}
+              : `${stops} Stop${
+                  stops > 1 ? "s" : ""
+                }`}
           </div>
+
         </div>
 
-        {/* ====================================================
-            ARRIVAL
-        ==================================================== */}
+        {/* ARRIVAL */}
+
         <div className="text-center md:text-right">
+
           <p className="text-3xl font-extrabold tracking-tight text-white">
-            {formatTime(flight?.arrivalTime)}
+            {formatTime(
+              flight.arrivalTime
+            )}
           </p>
 
           <p className="mt-1 text-xl font-bold text-blue-400">
@@ -375,17 +423,20 @@ function FlightCard({ flight }) {
             {arrivalCity}
           </p>
 
-          {arrivalAirport.name && (
+          {arrivalAirportName && (
             <p className="mt-1 text-xs text-slate-500">
-              {arrivalAirport.name}
+              {arrivalAirportName}
             </p>
           )}
+
         </div>
+
       </div>
 
       {/* ======================================================
-          BOTTOM BOOKING SECTION
+          BOOKING SECTION
       ====================================================== */}
+
       <div
         className="
           border-t
@@ -395,6 +446,7 @@ function FlightCard({ flight }) {
           py-5
         "
       >
+
         <div
           className="
             flex
@@ -405,8 +457,11 @@ function FlightCard({ flight }) {
             lg:justify-between
           "
         >
-          {/* Seats */}
+
+          {/* SEATS */}
+
           <div className="flex items-center gap-3">
+
             <div
               className="
                 flex
@@ -422,6 +477,7 @@ function FlightCard({ flight }) {
             </div>
 
             <div>
+
               <p className="text-xs text-slate-500">
                 Available Seats
               </p>
@@ -431,11 +487,15 @@ function FlightCard({ flight }) {
                   ? `${availableSeats} seats`
                   : "Check availability"}
               </p>
+
             </div>
+
           </div>
 
-          {/* Price */}
+          {/* PRICE */}
+
           <div className="text-left lg:text-right">
+
             <p className="text-xs text-slate-500">
               Price per adult
             </p>
@@ -449,13 +509,16 @@ function FlightCard({ flight }) {
             <p className="text-xs text-slate-500">
               Taxes & fees may apply
             </p>
+
           </div>
 
-          {/* Buttons */}
+          {/* BUTTONS */}
+
           <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
+
             <button
               type="button"
-              onClick={handleViewDetails}
+              onClick={handleFlightDetails}
               className="
                 flex
                 w-full
@@ -477,12 +540,13 @@ function FlightCard({ flight }) {
               "
             >
               View Details
+
               <FaArrowRight className="text-xs" />
             </button>
 
             <button
               type="button"
-              onClick={handleBookClick}
+              onClick={handleFlightDetails}
               className="
                 flex
                 w-full
@@ -506,11 +570,15 @@ function FlightCard({ flight }) {
               "
             >
               Book Now
+
               <FaPlane className="-rotate-45" />
             </button>
+
           </div>
+
         </div>
       </div>
+
     </article>
   );
 }
