@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import gsap from "gsap";
@@ -66,29 +65,33 @@ function Home() {
   };
 
   // ============================================================
-  // SEARCH FLIGHT
+  // SEARCH FLIGHTS
   //
-  // FLOW:
+  // ONE WAY:
   //
-  // SearchForm
-  //     ↓
-  // Backend Search API
-  //     ↓
-  // First real flight
-  //     ↓
-  // Flight ID
-  //     ↓
-  // /flight-details/:id
+  // From → To
+  // Departure Date
   //
-  // NO SearchFlights intermediate page.
+  // ROUND TRIP:
+  //
+  // From → To
+  // Departure Date
+  // Return Date
+  //
   // ============================================================
 
   const handleSearch = async (searchParams) => {
-    const { from, to, date } = searchParams || {};
+    const {
+      from,
+      to,
+      date,
+      returnDate,
+      tripType,
+    } = searchParams || {};
 
-    // ----------------------------------------------------------
-    // VALIDATION
-    // ----------------------------------------------------------
+    // ==========================================================
+    // BASIC VALIDATION
+    // ==========================================================
 
     if (!from || !to || !date) {
       alert(
@@ -104,21 +107,48 @@ function Home() {
       return;
     }
 
+    // ==========================================================
+    // ROUND TRIP VALIDATION
+    // ==========================================================
+
+    const isRoundTrip =
+      tripType === "round-trip";
+
+    if (isRoundTrip && !returnDate) {
+      alert(
+        "Please select your return date for a round trip."
+      );
+      return;
+    }
+
+    if (
+      isRoundTrip &&
+      returnDate &&
+      new Date(returnDate) < new Date(date)
+    ) {
+      alert(
+        "Return date cannot be earlier than the departure date."
+      );
+      return;
+    }
+
     try {
       setIsSearching(true);
 
       console.log("=================================");
-      console.log("SEARCHING FLIGHT");
+      console.log("FLIGHT SEARCH");
+      console.log("Trip Type:", tripType);
       console.log("From:", from);
       console.log("To:", to);
-      console.log("Date:", date);
+      console.log("Departure Date:", date);
+      console.log("Return Date:", returnDate || "N/A");
       console.log("=================================");
 
-      // --------------------------------------------------------
-      // CALL REAL BACKEND API
-      // --------------------------------------------------------
+      // ========================================================
+      // SEARCH DEPARTURE FLIGHT
+      // ========================================================
 
-      const result =
+      const departureResult =
         await flightService.searchFlights({
           from: from.toUpperCase(),
           to: to.toUpperCase(),
@@ -126,41 +156,42 @@ function Home() {
         });
 
       console.log(
-        "Flight Search Response:",
-        result
+        "Departure Search Response:",
+        departureResult
       );
 
-      // --------------------------------------------------------
-      // NORMALIZE BACKEND RESPONSE
-      //
-      // Expected:
-      //
-      // {
-      //   success: true,
-      //   count: 1,
-      //   data: [...]
-      // }
-      // --------------------------------------------------------
+      // ========================================================
+      // NORMALIZE DEPARTURE RESPONSE
+      // ========================================================
 
-      let flights = [];
+      let departureFlights = [];
 
-      if (Array.isArray(result)) {
-        flights = result;
-      } else if (Array.isArray(result?.data)) {
-        flights = result.data;
-      } else if (Array.isArray(result?.flights)) {
-        flights = result.flights;
+      if (Array.isArray(departureResult)) {
+        departureFlights = departureResult;
       } else if (
-        Array.isArray(result?.data?.data)
+        Array.isArray(departureResult?.data)
       ) {
-        flights = result.data.data;
+        departureFlights =
+          departureResult.data;
+      } else if (
+        Array.isArray(departureResult?.flights)
+      ) {
+        departureFlights =
+          departureResult.flights;
+      } else if (
+        Array.isArray(
+          departureResult?.data?.data
+        )
+      ) {
+        departureFlights =
+          departureResult.data.data;
       }
 
-      // --------------------------------------------------------
-      // NO FLIGHTS
-      // --------------------------------------------------------
+      // ========================================================
+      // NO DEPARTURE FLIGHTS
+      // ========================================================
 
-      if (flights.length === 0) {
+      if (departureFlights.length === 0) {
         alert(
           `No flights found from ${from.toUpperCase()} to ${to.toUpperCase()} on ${date}.`
         );
@@ -168,56 +199,192 @@ function Home() {
         return;
       }
 
-      // --------------------------------------------------------
-      // SELECT FIRST REAL FLIGHT
-      // --------------------------------------------------------
+      // ========================================================
+      // SELECT FIRST DEPARTURE FLIGHT
+      //
+      // Later we can show ALL flights.
+      // ========================================================
 
-      const flight = flights[0];
+      const departureFlight =
+        departureFlights[0];
 
-      console.log(
-        "Selected Flight:",
-        flight
-      );
+      const departureFlightId =
+        departureFlight?._id ||
+        departureFlight?.id ||
+        departureFlight?.flightId;
 
-      // --------------------------------------------------------
-      // GET FLIGHT ID
-      // --------------------------------------------------------
-
-      const flightId =
-        flight?._id ||
-        flight?.id ||
-        flight?.flightId;
-
-      if (!flightId) {
+      if (!departureFlightId) {
         console.error(
-          "Flight ID missing:",
-          flight
+          "Departure flight ID missing:",
+          departureFlight
         );
 
         alert(
-          "Flight information is incomplete. Flight ID is missing."
+          "Departure flight information is incomplete."
         );
 
         return;
       }
 
+      // ========================================================
+      // ONE WAY
+      // ========================================================
+
+      if (!isRoundTrip) {
+        console.log(
+          "One Way Flight Selected:",
+          departureFlight
+        );
+
+        navigate(
+          `/flight-details/${departureFlightId}`,
+          {
+            state: {
+              flight: departureFlight,
+              tripType: "one-way",
+              returnDate: null,
+            },
+          }
+        );
+
+        return;
+      }
+
+      // ========================================================
+      // ROUND TRIP
+      //
+      // Search reverse route:
+      //
+      // IDR → AMD
+      //
+      // using return date.
+      // ========================================================
+
+      console.log("Searching RETURN flight...");
+
+      const returnResult =
+        await flightService.searchFlights({
+          from: to.toUpperCase(),
+          to: from.toUpperCase(),
+          date: returnDate,
+        });
+
       console.log(
-        "Selected Flight ID:",
-        flightId
+        "Return Search Response:",
+        returnResult
       );
 
-      // --------------------------------------------------------
-      // DIRECT NAVIGATION
+      // ========================================================
+      // NORMALIZE RETURN RESPONSE
+      // ========================================================
+
+      let returnFlights = [];
+
+      if (Array.isArray(returnResult)) {
+        returnFlights = returnResult;
+      } else if (
+        Array.isArray(returnResult?.data)
+      ) {
+        returnFlights =
+          returnResult.data;
+      } else if (
+        Array.isArray(returnResult?.flights)
+      ) {
+        returnFlights =
+          returnResult.flights;
+      } else if (
+        Array.isArray(
+          returnResult?.data?.data
+        )
+      ) {
+        returnFlights =
+          returnResult.data.data;
+      }
+
+      // ========================================================
+      // NO RETURN FLIGHTS
+      // ========================================================
+
+      if (returnFlights.length === 0) {
+        alert(
+          `No return flights found from ${to.toUpperCase()} to ${from.toUpperCase()} on ${returnDate}.`
+        );
+
+        return;
+      }
+
+      // ========================================================
+      // SELECT FIRST RETURN FLIGHT
+      // ========================================================
+
+      const returnFlight =
+        returnFlights[0];
+
+      const returnFlightId =
+        returnFlight?._id ||
+        returnFlight?.id ||
+        returnFlight?.flightId;
+
+      if (!returnFlightId) {
+        console.error(
+          "Return flight ID missing:",
+          returnFlight
+        );
+
+        alert(
+          "Return flight information is incomplete."
+        );
+
+        return;
+      }
+
+      // ========================================================
+      // ROUND TRIP DATA
+      // ========================================================
+
+      console.log(
+        "Departure Flight:",
+        departureFlight
+      );
+
+      console.log(
+        "Return Flight:",
+        returnFlight
+      );
+
+      console.log(
+        "Departure Flight ID:",
+        departureFlightId
+      );
+
+      console.log(
+        "Return Flight ID:",
+        returnFlightId
+      );
+
+      // ========================================================
+      // NAVIGATE
       //
-      // No GSAP delay.
-      // No SearchFlights page.
-      // --------------------------------------------------------
+      // We pass BOTH flights.
+      // ========================================================
 
       navigate(
-        `/flight-details/${flightId}`,
+        `/flight-details/${departureFlightId}`,
         {
           state: {
-            flight,
+            flight: departureFlight,
+
+            returnFlight: returnFlight,
+
+            tripType: "round-trip",
+
+            departureDate: date,
+
+            returnDate: returnDate,
+
+            departureFlightId,
+
+            returnFlightId,
           },
         }
       );
@@ -269,10 +436,7 @@ function Home() {
   }, []);
 
   // ============================================================
-  // 3D AIRPLANE IDLE ANIMATION
-  //
-  // IMPORTANT:
-  // This animation does NOT control navigation.
+  // 3D AIRPLANE ANIMATION
   // ============================================================
 
   useEffect(() => {
@@ -298,7 +462,7 @@ function Home() {
   }, []);
 
   // ============================================================
-  // HOME UI
+  // UI
   // ============================================================
 
   return (
@@ -349,8 +513,6 @@ function Home() {
               shadow-2xl
             "
           >
-            {/* AIRPLANE */}
-
             <div
               className="
                 mb-5
@@ -365,17 +527,10 @@ function Home() {
                 ring-blue-400/30
               "
             >
-              <span
-                className="
-                  animate-bounce
-                  text-5xl
-                "
-              >
+              <span className="animate-bounce text-5xl">
                 ✈️
               </span>
             </div>
-
-            {/* TITLE */}
 
             <h2
               className="
@@ -388,8 +543,6 @@ function Home() {
               Searching Flights
             </h2>
 
-            {/* DESCRIPTION */}
-
             <p
               className="
                 mt-2
@@ -398,11 +551,9 @@ function Home() {
                 text-slate-300
               "
             >
-              Finding available flights for your
-              selected route and travel date...
+              Finding the best available flights
+              for your journey...
             </p>
-
-            {/* LOADING DOTS */}
 
             <div
               className="
@@ -412,37 +563,11 @@ function Home() {
                 gap-2
               "
             >
-              <span
-                className="
-                  h-2
-                  w-2
-                  animate-pulse
-                  rounded-full
-                  bg-blue-400
-                "
-              />
+              <span className="h-2 w-2 animate-pulse rounded-full bg-blue-400" />
 
-              <span
-                className="
-                  h-2
-                  w-2
-                  animate-pulse
-                  rounded-full
-                  bg-blue-400
-                  [animation-delay:200ms]
-                "
-              />
+              <span className="h-2 w-2 animate-pulse rounded-full bg-blue-400 [animation-delay:200ms]" />
 
-              <span
-                className="
-                  h-2
-                  w-2
-                  animate-pulse
-                  rounded-full
-                  bg-blue-400
-                  [animation-delay:400ms]
-                "
-              />
+              <span className="h-2 w-2 animate-pulse rounded-full bg-blue-400 [animation-delay:400ms]" />
             </div>
           </div>
         </div>
@@ -472,9 +597,7 @@ function Home() {
           lg:px-10
         "
       >
-        {/* ====================================================
-            LOGO
-        ===================================================== */}
+        {/* LOGO */}
 
         <button
           type="button"
@@ -502,9 +625,7 @@ function Home() {
           </span>
         </button>
 
-        {/* ====================================================
-            NAVIGATION
-        ===================================================== */}
+        {/* NAVIGATION */}
 
         <div
           className="
@@ -515,8 +636,6 @@ function Home() {
             md:gap-5
           "
         >
-          {/* FLIGHTS */}
-
           <button
             type="button"
             onClick={() =>
@@ -537,8 +656,6 @@ function Home() {
           >
             ✈️ Flights
           </button>
-
-          {/* OFFERS */}
 
           <button
             type="button"
@@ -561,17 +678,13 @@ function Home() {
             🏷️ Offers
           </button>
 
-          {/* ==================================================
-              USER LOGGED IN
-          =================================================== */}
+          {/* USER */}
 
           {user ? (
             <div
               className="relative"
               data-profile-menu
             >
-              {/* PROFILE BUTTON */}
-
               <button
                 type="button"
                 onClick={() =>
@@ -601,8 +714,6 @@ function Home() {
                 ▾
               </button>
 
-              {/* PROFILE DROPDOWN */}
-
               {dropdownOpen && (
                 <div
                   className="
@@ -619,18 +730,11 @@ function Home() {
                     backdrop-blur-xl
                   "
                 >
-                  {/* MY BOOKINGS */}
-
                   <button
                     type="button"
                     onClick={() => {
-                      setDropdownOpen(
-                        false
-                      );
-
-                      navigate(
-                        "/my-bookings"
-                      );
+                      setDropdownOpen(false);
+                      navigate("/my-bookings");
                     }}
                     className="
                       w-full
@@ -646,18 +750,11 @@ function Home() {
                     🎫 My Bookings
                   </button>
 
-                  {/* ACCOUNT */}
-
                   <button
                     type="button"
                     onClick={() => {
-                      setDropdownOpen(
-                        false
-                      );
-
-                      navigate(
-                        "/profile"
-                      );
+                      setDropdownOpen(false);
+                      navigate("/profile");
                     }}
                     className="
                       w-full
@@ -673,22 +770,11 @@ function Home() {
                     ⚙️ Account Settings
                   </button>
 
-                  {/* DIVIDER */}
-
-                  <div
-                    className="
-                      border-t
-                      border-white/10
-                    "
-                  />
-
-                  {/* LOGOUT */}
+                  <div className="border-t border-white/10" />
 
                   <button
                     type="button"
-                    onClick={
-                      handleLogout
-                    }
+                    onClick={handleLogout}
                     className="
                       w-full
                       px-4
@@ -707,8 +793,6 @@ function Home() {
             </div>
           ) : (
             <>
-              {/* LOGIN */}
-
               <button
                 type="button"
                 onClick={() =>
@@ -728,14 +812,10 @@ function Home() {
                 👤 Login
               </button>
 
-              {/* REGISTER */}
-
               <button
                 type="button"
                 onClick={() =>
-                  navigate(
-                    "/register"
-                  )
+                  navigate("/register")
                 }
                 className="
                   hidden
@@ -761,7 +841,7 @@ function Home() {
       </nav>
 
       {/* ======================================================
-          HERO SECTION
+          HERO
       ======================================================= */}
 
       <main
@@ -787,9 +867,7 @@ function Home() {
             "url('https://www.traveltrendstoday.in/storage/posts/c8c03a14b880e1993c74db74663b0cf1.jpg')",
         }}
       >
-        {/* ====================================================
-            BACKGROUND GRADIENT
-        ===================================================== */}
+        {/* BACKGROUND */}
 
         <div
           className="
@@ -802,9 +880,7 @@ function Home() {
           "
         />
 
-        {/* ====================================================
-            HERO CONTENT
-        ===================================================== */}
+        {/* HERO CONTENT */}
 
         <div
           className="
@@ -818,9 +894,7 @@ function Home() {
             items-center
           "
         >
-          {/* ==================================================
-              BADGE
-          =================================================== */}
+          {/* BADGE */}
 
           <span
             className="
@@ -847,9 +921,7 @@ function Home() {
             ✨ Cinematic 3D Flight Experience
           </span>
 
-          {/* ==================================================
-              TITLE
-          =================================================== */}
+          {/* TITLE */}
 
           <h1
             className="
@@ -881,9 +953,7 @@ function Home() {
             </span>
           </h1>
 
-          {/* ==================================================
-              DESCRIPTION
-          =================================================== */}
+          {/* DESCRIPTION */}
 
           <p
             className="
@@ -903,9 +973,7 @@ function Home() {
             our modern cinematic travel platform.
           </p>
 
-          {/* ==================================================
-              SEARCH FORM CONTAINER
-          =================================================== */}
+          {/* SEARCH FORM */}
 
           <div
             className="
@@ -933,7 +1001,7 @@ function Home() {
       </main>
 
       {/* ======================================================
-          FLOATING 3D AIRPLANE
+          FLOATING AIRPLANE
       ======================================================= */}
 
       <div

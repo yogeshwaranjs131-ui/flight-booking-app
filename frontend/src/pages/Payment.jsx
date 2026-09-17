@@ -1,28 +1,41 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+
 import {
   Elements,
   PaymentElement,
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
+
 import { loadStripe } from "@stripe/stripe-js";
 
 import bookingService from "../services/bookingService";
 import paymentService from "../services/paymentService";
+
 import { formatCurrency } from "../utils/formatCurrency";
 
-const stripePromise = loadStripe(
-  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
-);
+// ============================================================
+// STRIPE
+// ============================================================
+
+const stripePublishableKey =
+  import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
+
+const stripePromise = stripePublishableKey
+  ? loadStripe(stripePublishableKey)
+  : null;
 
 // ============================================================
-// Stripe Checkout Form
+// CHECKOUT FORM
 // ============================================================
 
 function CheckoutForm({
   flight,
+  returnFlight,
+  tripType,
   selectedSeats,
+  returnSelectedSeats,
   passengers,
   totalPrice,
 }) {
@@ -33,37 +46,176 @@ function CheckoutForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // ==========================================================
+  // ROUND TRIP
+  // ==========================================================
+
+  const isRoundTrip =
+    tripType === "round-trip" &&
+    !!returnFlight;
+
+  // ==========================================================
+  // GET FLIGHT IDS
+  // ==========================================================
+
+  const outboundFlightId =
+    flight?._id ||
+    flight?.id ||
+    flight?.flightId ||
+    null;
+
+  const returnFlightId =
+    returnFlight?._id ||
+    returnFlight?.id ||
+    returnFlight?.flightId ||
+    null;
+
+  // ==========================================================
+  // SUBMIT PAYMENT
+  // ==========================================================
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
+    setError("");
+
+    // --------------------------------------------------------
+    // Stripe validation
+    // --------------------------------------------------------
+
     if (!stripe || !elements) {
-      setError("Payment system is still loading. Please wait.");
+      setError(
+        "Payment system is still loading. Please wait."
+      );
+
+      return;
+    }
+
+    // --------------------------------------------------------
+    // Outbound flight validation
+    // --------------------------------------------------------
+
+    if (!outboundFlightId) {
+      setError(
+        "Outbound flight information is missing."
+      );
+
+      return;
+    }
+
+    // --------------------------------------------------------
+    // Outbound seats validation
+    // --------------------------------------------------------
+
+    if (
+      !Array.isArray(selectedSeats) ||
+      selectedSeats.length === 0
+    ) {
+      setError(
+        "Please select at least one outbound seat."
+      );
+
+      return;
+    }
+
+    // --------------------------------------------------------
+    // Passenger validation
+    // --------------------------------------------------------
+
+    if (
+      !Array.isArray(passengers) ||
+      passengers.length === 0
+    ) {
+      setError(
+        "Passenger information is missing."
+      );
+
+      return;
+    }
+
+    // --------------------------------------------------------
+    // Round trip validation
+    // --------------------------------------------------------
+
+    if (isRoundTrip) {
+      if (!returnFlightId) {
+        setError(
+          "Return flight information is missing."
+        );
+
+        return;
+      }
+
+      if (
+        !Array.isArray(returnSelectedSeats) ||
+        returnSelectedSeats.length === 0
+      ) {
+        setError(
+          "Please select at least one return seat."
+        );
+
+        return;
+      }
+    }
+
+    // --------------------------------------------------------
+    // Amount validation
+    // --------------------------------------------------------
+
+    if (
+      !totalPrice ||
+      Number(totalPrice) <= 0
+    ) {
+      setError(
+        "Invalid booking amount."
+      );
+
       return;
     }
 
     setLoading(true);
-    setError("");
 
     try {
-      // Validate Stripe PaymentElement
-      const { error: submitError } = await elements.submit();
+      // ======================================================
+      // STEP 1
+      // Validate Payment Element
+      // ======================================================
+
+      const {
+        error: submitError,
+      } = await elements.submit();
 
       if (submitError) {
-        setError(submitError.message);
+        setError(
+          submitError.message ||
+            "Please check your payment details."
+        );
+
         setLoading(false);
+
         return;
       }
 
-      // Confirm payment
-      const result = await stripe.confirmPayment({
-        elements,
+      // ======================================================
+      // STEP 2
+      // Confirm Stripe Payment
+      // ======================================================
 
-        confirmParams: {
-          return_url: `${window.location.origin}/booking-confirmation`,
-        },
+      const result =
+        await stripe.confirmPayment({
+          elements,
 
-        redirect: "if_required",
-      });
+          confirmParams: {
+            return_url:
+              `${window.location.origin}/booking-confirmation`,
+          },
+
+          redirect: "if_required",
+        });
+
+      // ======================================================
+      // STRIPE ERROR
+      // ======================================================
 
       if (result.error) {
         setError(
@@ -72,65 +224,217 @@ function CheckoutForm({
         );
 
         setLoading(false);
+
         return;
       }
 
-      const paymentIntent = result.paymentIntent;
+      // ======================================================
+      // PAYMENT INTENT
+      // ======================================================
+
+      const paymentIntent =
+        result.paymentIntent;
 
       if (!paymentIntent) {
-        setError("Unable to verify payment.");
+        setError(
+          "Unable to verify payment."
+        );
+
         setLoading(false);
+
         return;
       }
 
-      if (paymentIntent.status === "succeeded") {
+      console.log(
+        "Stripe PaymentIntent:",
+        paymentIntent
+      );
+
+      // ======================================================
+      // SUCCESS
+      // ======================================================
+
+      if (
+        paymentIntent.status ===
+        "succeeded"
+      ) {
+        // ====================================================
+        // BOOKING DATA
+        // ====================================================
+
         const bookingData = {
-          flightId: flight?._id,
+          // --------------------------------------------------
+          // Trip
+          // --------------------------------------------------
+
+          tripType:
+            isRoundTrip
+              ? "round-trip"
+              : "one-way",
+
+          // --------------------------------------------------
+          // Outbound
+          // --------------------------------------------------
+
+          flightId:
+            outboundFlightId,
+
+          seats:
+            selectedSeats,
+
+          // --------------------------------------------------
+          // Return
+          // --------------------------------------------------
+
+          returnFlightId:
+            isRoundTrip
+              ? returnFlightId
+              : null,
+
+          returnSeats:
+            isRoundTrip
+              ? returnSelectedSeats
+              : [],
+
+          // --------------------------------------------------
+          // Passengers
+          // --------------------------------------------------
 
           passengers,
 
-          seats: selectedSeats,
+          // --------------------------------------------------
+          // Total
+          // --------------------------------------------------
 
-          totalPrice,
+          totalPrice:
+            Number(totalPrice),
+
+          // --------------------------------------------------
+          // Stripe
+          // --------------------------------------------------
 
           paymentDetails: {
-            stripe_payment_intent_id: paymentIntent.id,
+            stripe_payment_intent_id:
+              paymentIntent.id,
+
             status: "Success",
           },
         };
 
+        console.log(
+          "Creating booking:",
+          bookingData
+        );
+
+        // ====================================================
+        // CREATE BOOKING IN DATABASE
+        // ====================================================
+
         const bookingResponse =
-          await bookingService.createBooking(bookingData);
+          await bookingService.createBooking(
+            bookingData
+          );
+
+        console.log(
+          "Booking API response:",
+          bookingResponse
+        );
+
+        // ====================================================
+        // EXTRACT BOOKING
+        // ====================================================
 
         const newBooking =
           bookingResponse?.data?.data ||
           bookingResponse?.data ||
           bookingResponse;
 
-        navigate("/booking-confirmation", {
-          state: {
-            booking: newBooking,
-          },
-          replace: true,
-        });
+        if (
+          !newBooking ||
+          !newBooking._id
+        ) {
+          throw new Error(
+            "Payment succeeded, but booking could not be created."
+          );
+        }
+
+        // ====================================================
+        // NAVIGATE CONFIRMATION
+        // ====================================================
+
+        navigate(
+          "/booking-confirmation",
+          {
+            state: {
+              booking:
+                newBooking,
+
+              flight,
+
+              returnFlight:
+                isRoundTrip
+                  ? returnFlight
+                  : null,
+
+              tripType:
+                isRoundTrip
+                  ? "round-trip"
+                  : "one-way",
+
+              selectedSeats,
+
+              returnSelectedSeats:
+                isRoundTrip
+                  ? returnSelectedSeats
+                  : [],
+
+              passengers,
+
+              totalPrice:
+                Number(totalPrice),
+
+              paymentIntent:
+                paymentIntent.id,
+            },
+
+            replace: true,
+          }
+        );
 
         return;
       }
 
-      if (paymentIntent.status === "processing") {
+      // ======================================================
+      // PROCESSING
+      // ======================================================
+
+      if (
+        paymentIntent.status ===
+        "processing"
+      ) {
         setError(
           "Your payment is being processed. Please wait."
         );
 
         setLoading(false);
+
         return;
       }
+
+      // ======================================================
+      // OTHER STATUS
+      // ======================================================
 
       setError(
         `Payment status: ${paymentIntent.status}`
       );
+
+      setLoading(false);
     } catch (err) {
-      console.error("Payment Error:", err);
+      console.error(
+        "Payment Error:",
+        err
+      );
 
       setError(
         err?.response?.data?.message ||
@@ -143,17 +447,27 @@ function CheckoutForm({
     }
   };
 
+  // ==========================================================
+  // UI
+  // ==========================================================
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Payment Method Header */}
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-6"
+    >
+      {/* ======================================================
+          PAYMENT METHOD
+      ====================================================== */}
+
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <div>
             <h3 className="text-lg font-bold text-slate-900">
               Payment method
             </h3>
 
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="mt-1 text-sm text-slate-500">
               Choose your preferred secure payment method
             </p>
           </div>
@@ -167,7 +481,10 @@ function CheckoutForm({
           </div>
         </div>
 
-        {/* Stripe Payment Element */}
+        {/* ====================================================
+            STRIPE PAYMENT ELEMENT
+        ==================================================== */}
+
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <PaymentElement
             options={{
@@ -180,31 +497,40 @@ function CheckoutForm({
         </div>
       </div>
 
-      {/* Security Information */}
-      <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
+      {/* ======================================================
+          SECURITY
+      ====================================================== */}
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
         <div className="flex gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100">
             🔐
           </div>
 
           <div>
-            <p className="font-semibold text-slate-800 text-sm">
+            <p className="text-sm font-semibold text-slate-800">
               Secure payment
             </p>
 
-            <p className="text-xs text-slate-500 mt-1 leading-5">
-              Your payment information is securely processed
-              by Stripe. We never store your card details.
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Your payment information is securely
+              processed by Stripe. We never store
+              your card details.
             </p>
           </div>
         </div>
       </div>
 
-      {/* Error */}
+      {/* ======================================================
+          ERROR
+      ====================================================== */}
+
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4">
           <div className="flex gap-3">
-            <span className="text-red-600">⚠️</span>
+            <span className="text-red-600">
+              ⚠️
+            </span>
 
             <p className="text-sm font-medium text-red-700">
               {error}
@@ -213,11 +539,35 @@ function CheckoutForm({
         </div>
       )}
 
-      {/* Pay Button */}
+      {/* ======================================================
+          PAY BUTTON
+      ====================================================== */}
+
       <button
         type="submit"
-        disabled={!stripe || !elements || loading}
-        className="group relative w-full overflow-hidden rounded-2xl bg-slate-950 px-6 py-4 text-white shadow-xl transition-all duration-300 hover:bg-slate-800 hover:shadow-2xl disabled:cursor-not-allowed disabled:bg-slate-400"
+        disabled={
+          !stripe ||
+          !elements ||
+          loading
+        }
+        className="
+          group
+          relative
+          w-full
+          overflow-hidden
+          rounded-2xl
+          bg-slate-950
+          px-6
+          py-4
+          text-white
+          shadow-xl
+          transition-all
+          duration-300
+          hover:bg-slate-800
+          hover:shadow-2xl
+          disabled:cursor-not-allowed
+          disabled:bg-slate-400
+        "
       >
         <div className="relative flex items-center justify-center gap-3">
           {loading ? (
@@ -230,10 +580,15 @@ function CheckoutForm({
             </>
           ) : (
             <>
-              <span className="text-lg">🔒</span>
+              <span className="text-lg">
+                🔒
+              </span>
 
               <span className="font-bold">
-                Pay {formatCurrency(totalPrice)}
+                Pay{" "}
+                {formatCurrency(
+                  totalPrice
+                )}
               </span>
 
               <span className="text-lg transition-transform group-hover:translate-x-1">
@@ -245,166 +600,333 @@ function CheckoutForm({
       </button>
 
       <p className="text-center text-xs text-slate-400">
-        By continuing, you agree to the booking terms and
-        payment conditions.
+        By continuing, you agree to the booking
+        terms and payment conditions.
       </p>
     </form>
   );
 }
 
 // ============================================================
-// Payment Page
+// PAYMENT PAGE
 // ============================================================
 
 function Payment() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const state = location.state || {};
+  const state =
+    location.state || {};
 
-  const flight = state.flight;
+  // ==========================================================
+  // BOOKING DATA
+  // ==========================================================
 
-  const selectedSeats = Array.isArray(state.selectedSeats)
-    ? state.selectedSeats
-    : [];
+  const flight =
+    state.flight || null;
 
-  const passengers = Array.isArray(state.passengers)
-    ? state.passengers
-    : [];
+  const returnFlight =
+    state.returnFlight || null;
 
-  const passedTotalPrice = Number(
-    state.totalPrice || 0
-  );
+  const tripType =
+    state.tripType ||
+    "one-way";
+
+  const selectedSeats =
+    Array.isArray(
+      state.selectedSeats
+    )
+      ? state.selectedSeats
+      : [];
+
+  const returnSelectedSeats =
+    Array.isArray(
+      state.returnSelectedSeats
+    )
+      ? state.returnSelectedSeats
+      : [];
+
+  const passengers =
+    Array.isArray(
+      state.passengers
+    )
+      ? state.passengers
+      : [];
+
+  const passedTotalPrice =
+    Number(
+      state.totalPrice || 0
+    );
+
+  // ==========================================================
+  // ROUND TRIP
+  // ==========================================================
+
+  const isRoundTrip =
+    tripType === "round-trip" &&
+    !!returnFlight;
+
+  // ==========================================================
+  // PRICE
+  // ==========================================================
+
+  const outboundPrice =
+    Number(
+      flight?.price || 0
+    );
+
+  const returnPrice =
+    Number(
+      returnFlight?.price || 0
+    );
+
+  const outboundTotal =
+    outboundPrice *
+    selectedSeats.length;
+
+  const returnTotal =
+    isRoundTrip
+      ? returnPrice *
+        returnSelectedSeats.length
+      : 0;
 
   const calculatedPrice =
-    Number(flight?.price || 0) *
-    Math.max(selectedSeats.length, 1);
+    outboundTotal +
+    returnTotal;
 
   const totalPrice =
     passedTotalPrice > 0
       ? passedTotalPrice
       : calculatedPrice;
 
-  const [clientSecret, setClientSecret] = useState("");
-  const [paymentError, setPaymentError] = useState("");
-  const [loadingPayment, setLoadingPayment] =
-    useState(true);
-
   // ==========================================================
-  // Stripe appearance
+  // STRIPE
   // ==========================================================
 
-  const stripeOptions = useMemo(() => {
-    if (!clientSecret) return null;
+  const [
+    clientSecret,
+    setClientSecret,
+  ] = useState("");
 
-    return {
-      clientSecret,
+  const [
+    paymentError,
+    setPaymentError,
+  ] = useState("");
 
-      appearance: {
-        theme: "stripe",
+  const [
+    loadingPayment,
+    setLoadingPayment,
+  ] = useState(true);
 
-        variables: {
-          colorPrimary: "#0f172a",
-          colorBackground: "#ffffff",
-          colorText: "#0f172a",
-          colorDanger: "#dc2626",
-          fontFamily:
-            '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-          borderRadius: "12px",
+  // ==========================================================
+  // STRIPE OPTIONS
+  // ==========================================================
+
+  const stripeOptions =
+    useMemo(() => {
+      if (!clientSecret) {
+        return null;
+      }
+
+      return {
+        clientSecret,
+
+        appearance: {
+          theme: "stripe",
+
+          variables: {
+            colorPrimary:
+              "#0f172a",
+
+            colorBackground:
+              "#ffffff",
+
+            colorText:
+              "#0f172a",
+
+            colorDanger:
+              "#dc2626",
+
+            fontFamily:
+              '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+
+            borderRadius:
+              "12px",
+          },
+
+          rules: {
+            ".Input": {
+              border:
+                "1px solid #e2e8f0",
+
+              boxShadow:
+                "none",
+
+              padding:
+                "12px",
+            },
+
+            ".Input:focus": {
+              border:
+                "1px solid #0f172a",
+
+              boxShadow:
+                "0 0 0 3px rgba(15, 23, 42, 0.08)",
+            },
+
+            ".Label": {
+              fontWeight:
+                "600",
+
+              color:
+                "#334155",
+            },
+          },
         },
 
-        rules: {
-          ".Input": {
-            border: "1px solid #e2e8f0",
-            boxShadow: "none",
-            padding: "12px",
-          },
-
-          ".Input:focus": {
-            border: "1px solid #0f172a",
-            boxShadow:
-              "0 0 0 3px rgba(15, 23, 42, 0.08)",
-          },
-
-          ".Label": {
-            fontWeight: "600",
-            color: "#334155",
-          },
-        },
-      },
-
-      loader: "auto",
-    };
-  }, [clientSecret]);
+        loader: "auto",
+      };
+    }, [clientSecret]);
 
   // ==========================================================
-  // Create Payment Intent
+  // CREATE PAYMENT INTENT
   // ==========================================================
 
   useEffect(() => {
     let cancelled = false;
 
-    const createPaymentIntent = async () => {
-      if (
-        !flight ||
-        selectedSeats.length === 0 ||
-        passengers.length === 0
-      ) {
-        setLoadingPayment(false);
-        return;
-      }
+    const createPaymentIntent =
+      async () => {
+        // ----------------------------------------------------
+        // Basic validation
+        // ----------------------------------------------------
 
-      if (!totalPrice || totalPrice <= 0) {
-        setPaymentError(
-          "Invalid booking amount."
-        );
-        setLoadingPayment(false);
-        return;
-      }
-
-      try {
-        setLoadingPayment(true);
-        setPaymentError("");
-
-        const response =
-          await paymentService.createPaymentIntent(
-            totalPrice
-          );
-
-        const secret =
-          response?.clientSecret ||
-          response?.data?.clientSecret ||
-          response?.data?.data?.clientSecret;
-
-        if (!secret) {
-          throw new Error(
-            "Stripe client secret was not returned by the server."
-          );
-        }
-
-        if (!cancelled) {
-          setClientSecret(secret);
-        }
-      } catch (error) {
-        console.error(
-          "Payment Intent Error:",
-          error
-        );
-
-        if (!cancelled) {
+        if (
+          !flight ||
+          selectedSeats.length === 0 ||
+          passengers.length === 0
+        ) {
           setPaymentError(
-            error?.response?.data?.error ||
-              error?.response?.data?.message ||
-              error?.message ||
-              "Unable to start secure payment."
+            "Booking information is incomplete."
           );
-        }
-      } finally {
-        if (!cancelled) {
+
           setLoadingPayment(false);
+
+          return;
         }
-      }
-    };
+
+        // ----------------------------------------------------
+        // Round trip validation
+        // ----------------------------------------------------
+
+        if (isRoundTrip) {
+          if (!returnFlight) {
+            setPaymentError(
+              "Return flight information is missing."
+            );
+
+            setLoadingPayment(false);
+
+            return;
+          }
+
+          if (
+            returnSelectedSeats.length === 0
+          ) {
+            setPaymentError(
+              "Return seat selection is missing."
+            );
+
+            setLoadingPayment(false);
+
+            return;
+          }
+        }
+
+        // ----------------------------------------------------
+        // Amount validation
+        // ----------------------------------------------------
+
+        if (
+          !totalPrice ||
+          totalPrice <= 0
+        ) {
+          setPaymentError(
+            "Invalid booking amount."
+          );
+
+          setLoadingPayment(false);
+
+          return;
+        }
+
+        // ----------------------------------------------------
+        // Stripe configuration validation
+        // ----------------------------------------------------
+
+        if (!stripePromise) {
+          setPaymentError(
+            "Stripe is not configured. Please check VITE_STRIPE_PUBLISHABLE_KEY."
+          );
+
+          setLoadingPayment(false);
+
+          return;
+        }
+
+        try {
+          setLoadingPayment(true);
+          setPaymentError("");
+          setClientSecret("");
+
+          // ----------------------------------------------
+          // Create PaymentIntent
+          // ----------------------------------------------
+
+          const response =
+            await paymentService.createPaymentIntent(
+              totalPrice
+            );
+
+          console.log(
+            "Payment Intent response:",
+            response
+          );
+
+          const secret =
+            response?.clientSecret ||
+            response?.data?.clientSecret ||
+            response?.data?.data?.clientSecret;
+
+          if (!secret) {
+            throw new Error(
+              "Stripe client secret was not returned by the server."
+            );
+          }
+
+          if (!cancelled) {
+            setClientSecret(secret);
+          }
+        } catch (error) {
+          console.error(
+            "Payment Intent Error:",
+            error
+          );
+
+          if (!cancelled) {
+            setPaymentError(
+              error?.response?.data?.error ||
+                error?.response?.data?.message ||
+                error?.message ||
+                "Unable to start secure payment."
+            );
+          }
+        } finally {
+          if (!cancelled) {
+            setLoadingPayment(false);
+          }
+        }
+      };
 
     createPaymentIntent();
 
@@ -413,13 +935,16 @@ function Payment() {
     };
   }, [
     flight?._id,
+    returnFlight?._id,
     selectedSeats.join(","),
+    returnSelectedSeats.join(","),
     passengers.length,
     totalPrice,
+    isRoundTrip,
   ]);
 
   // ==========================================================
-  // Missing booking data
+  // MISSING BOOKING DATA
   // ==========================================================
 
   if (
@@ -428,8 +953,8 @@ function Payment() {
     passengers.length === 0
   ) {
     return (
-      <div className="min-h-[70vh] flex items-center justify-center px-4">
-        <div className="max-w-md w-full rounded-3xl bg-white border border-slate-200 shadow-xl p-8 text-center">
+      <div className="flex min-h-[70vh] items-center justify-center px-4">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl">
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-3xl">
             ⚠️
           </div>
@@ -439,13 +964,25 @@ function Payment() {
           </h2>
 
           <p className="mt-3 text-slate-500">
-            Your payment session does not contain the
-            required booking information.
+            Your payment session does not contain
+            the required booking information.
           </p>
 
           <button
-            onClick={() => navigate("/")}
-            className="mt-7 rounded-xl bg-slate-950 px-6 py-3 font-semibold text-white hover:bg-slate-800"
+            type="button"
+            onClick={() =>
+              navigate("/")
+            }
+            className="
+              mt-7
+              rounded-xl
+              bg-slate-950
+              px-6
+              py-3
+              font-semibold
+              text-white
+              hover:bg-slate-800
+            "
           >
             Return to Home
           </button>
@@ -454,23 +991,71 @@ function Payment() {
     );
   }
 
+  // ==========================================================
+  // OUTBOUND DISPLAY
+  // ==========================================================
+
   const departureCode =
-    flight?.departureAirport?.airportCode ||
-    flight?.departureAirport?.code ||
+    flight?.departureAirport
+      ?.airportCode ||
+    flight?.departureAirport
+      ?.code ||
+    flight?.from ||
     "DEP";
 
   const arrivalCode =
-    flight?.arrivalAirport?.airportCode ||
-    flight?.arrivalAirport?.code ||
+    flight?.arrivalAirport
+      ?.airportCode ||
+    flight?.arrivalAirport
+      ?.code ||
+    flight?.to ||
     "ARR";
 
   const departureCity =
-    flight?.departureAirport?.city ||
+    flight?.departureAirport
+      ?.city ||
     departureCode;
 
   const arrivalCity =
-    flight?.arrivalAirport?.city ||
+    flight?.arrivalAirport
+      ?.city ||
     arrivalCode;
+
+  // ==========================================================
+  // RETURN DISPLAY
+  // ==========================================================
+
+  const returnDepartureCode =
+    returnFlight
+      ?.departureAirport
+      ?.airportCode ||
+    returnFlight
+      ?.departureAirport
+      ?.code ||
+    returnFlight?.from ||
+    "DEP";
+
+  const returnArrivalCode =
+    returnFlight
+      ?.arrivalAirport
+      ?.airportCode ||
+    returnFlight
+      ?.arrivalAirport
+      ?.code ||
+    returnFlight?.to ||
+    "ARR";
+
+  const returnDepartureCity =
+    returnFlight
+      ?.departureAirport
+      ?.city ||
+    returnDepartureCode;
+
+  const returnArrivalCity =
+    returnFlight
+      ?.arrivalAirport
+      ?.city ||
+    returnArrivalCode;
 
   // ==========================================================
   // UI
@@ -480,9 +1065,9 @@ function Payment() {
     <div className="min-h-screen bg-slate-50 py-8 md:py-12">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
-        {/* ================================================= */}
-        {/* Header */}
-        {/* ================================================= */}
+        {/* ==================================================
+            HEADER
+        ================================================== */}
 
         <div className="mb-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -491,7 +1076,7 @@ function Payment() {
                 Secure Checkout
               </p>
 
-              <h1 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-slate-950">
+              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
                 Complete your booking
               </h1>
 
@@ -508,11 +1093,11 @@ function Payment() {
           </div>
         </div>
 
-        {/* ================================================= */}
-        {/* Progress */}
-        {/* ================================================= */}
+        {/* ==================================================
+            PROGRESS
+        ================================================== */}
 
-        <div className="mb-8 hidden md:flex items-center">
+        <div className="mb-8 hidden items-center md:flex">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-white">
               ✓
@@ -548,18 +1133,17 @@ function Payment() {
           </div>
         </div>
 
-        {/* ================================================= */}
-        {/* Main Grid */}
-        {/* ================================================= */}
+        {/* ==================================================
+            MAIN GRID
+        ================================================== */}
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_400px]">
 
-          {/* ================================================= */}
-          {/* Payment Card */}
-          {/* ================================================= */}
+          {/* =================================================
+              PAYMENT
+          ================================================= */}
 
           <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-8">
-
             <div className="mb-7 flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-2xl">
                 💳
@@ -576,10 +1160,16 @@ function Payment() {
               </div>
             </div>
 
+            {/* =================================================
+                PAYMENT ERROR
+            ================================================= */}
+
             {paymentError && (
               <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 p-5">
                 <div className="flex gap-3">
-                  <span className="text-xl">⚠️</span>
+                  <span className="text-xl">
+                    ⚠️
+                  </span>
 
                   <div>
                     <p className="font-bold text-red-800">
@@ -594,6 +1184,10 @@ function Payment() {
               </div>
             )}
 
+            {/* =================================================
+                LOADING
+            ================================================= */}
+
             {loadingPayment ? (
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-10 text-center">
                 <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-slate-950" />
@@ -606,16 +1200,35 @@ function Payment() {
                   Connecting to Stripe
                 </p>
               </div>
-            ) : clientSecret && stripeOptions ? (
+            ) : clientSecret &&
+              stripeOptions &&
+              stripePromise ? (
               <Elements
                 stripe={stripePromise}
                 options={stripeOptions}
               >
                 <CheckoutForm
                   flight={flight}
-                  selectedSeats={selectedSeats}
-                  passengers={passengers}
-                  totalPrice={totalPrice}
+                  returnFlight={
+                    isRoundTrip
+                      ? returnFlight
+                      : null
+                  }
+                  tripType={tripType}
+                  selectedSeats={
+                    selectedSeats
+                  }
+                  returnSelectedSeats={
+                    isRoundTrip
+                      ? returnSelectedSeats
+                      : []
+                  }
+                  passengers={
+                    passengers
+                  }
+                  totalPrice={
+                    totalPrice
+                  }
                 />
               </Elements>
             ) : (
@@ -625,8 +1238,20 @@ function Payment() {
                 </p>
 
                 <button
-                  onClick={() => window.location.reload()}
-                  className="mt-4 rounded-xl bg-slate-950 px-5 py-2.5 text-sm font-semibold text-white"
+                  type="button"
+                  onClick={() =>
+                    window.location.reload()
+                  }
+                  className="
+                    mt-4
+                    rounded-xl
+                    bg-slate-950
+                    px-5
+                    py-2.5
+                    text-sm
+                    font-semibold
+                    text-white
+                  "
                 >
                   Try Again
                 </button>
@@ -634,18 +1259,23 @@ function Payment() {
             )}
           </div>
 
-          {/* ================================================= */}
-          {/* Booking Summary */}
-          {/* ================================================= */}
+          {/* =================================================
+              BOOKING SUMMARY
+          ================================================= */}
 
           <aside className="h-fit overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
 
-            {/* Airline Header */}
+            {/* =================================================
+                AIRLINE HEADER
+            ================================================= */}
+
             <div className="bg-slate-950 p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-widest text-slate-400">
-                    Flight
+                    {isRoundTrip
+                      ? "Round Trip"
+                      : "One Way"}
                   </p>
 
                   <h3 className="mt-1 text-lg font-bold">
@@ -659,10 +1289,21 @@ function Payment() {
               </div>
             </div>
 
-            {/* Route */}
             <div className="p-6">
-              <div className="flex items-center justify-between">
 
+              {/* =================================================
+                  OUTBOUND
+              ================================================= */}
+
+              <div className="mb-3">
+                <p className="text-xs font-bold uppercase tracking-widest text-blue-600">
+                  {isRoundTrip
+                    ? "Departure"
+                    : "Journey"}
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between">
                 <div>
                   <p className="text-3xl font-black text-slate-950">
                     {departureCode}
@@ -674,14 +1315,17 @@ function Payment() {
                 </div>
 
                 <div className="mx-4 flex flex-1 flex-col items-center">
-                  <span className="text-lg">✈️</span>
+                  <span className="text-lg">
+                    ✈️
+                  </span>
 
-                  <div className="my-2 h-px w-full bg-slate-200 relative">
+                  <div className="relative my-2 h-px w-full bg-slate-200">
                     <span className="absolute left-1/2 -top-1 h-2 w-2 -translate-x-1/2 rounded-full bg-indigo-600" />
                   </div>
 
                   <span className="text-xs text-slate-400">
-                    {flight.duration || "Direct"}
+                    {flight.duration ||
+                      "Direct"}
                   </span>
                 </div>
 
@@ -696,9 +1340,92 @@ function Payment() {
                 </div>
               </div>
 
-              {/* Details */}
-              <div className="mt-7 space-y-4 border-t border-slate-100 pt-6">
+              {/* OUTBOUND SEATS */}
 
+              <div className="mt-5 rounded-xl bg-blue-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-blue-600">
+                  Departure Seats
+                </p>
+
+                <p className="mt-1 text-sm font-bold text-slate-800">
+                  {selectedSeats.join(
+                    ", "
+                  )}
+                </p>
+              </div>
+
+              {/* =================================================
+                  RETURN
+              ================================================= */}
+
+              {isRoundTrip && (
+                <>
+                  <div className="my-6 border-t border-slate-100" />
+
+                  <div className="mb-3">
+                    <p className="text-xs font-bold uppercase tracking-widest text-amber-600">
+                      Return
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-3xl font-black text-slate-950">
+                        {returnDepartureCode}
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-500">
+                        {returnDepartureCity}
+                      </p>
+                    </div>
+
+                    <div className="mx-4 flex flex-1 flex-col items-center">
+                      <span className="text-lg">
+                        ✈️
+                      </span>
+
+                      <div className="relative my-2 h-px w-full bg-slate-200">
+                        <span className="absolute left-1/2 -top-1 h-2 w-2 -translate-x-1/2 rounded-full bg-amber-500" />
+                      </div>
+
+                      <span className="text-xs text-slate-400">
+                        {returnFlight?.duration ||
+                          "Direct"}
+                      </span>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-3xl font-black text-slate-950">
+                        {returnArrivalCode}
+                      </p>
+
+                      <p className="mt-1 text-xs text-slate-500">
+                        {returnArrivalCity}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* RETURN SEATS */}
+
+                  <div className="mt-5 rounded-xl bg-amber-50 p-4">
+                    <p className="text-xs font-bold uppercase tracking-wider text-amber-600">
+                      Return Seats
+                    </p>
+
+                    <p className="mt-1 text-sm font-bold text-slate-800">
+                      {returnSelectedSeats.join(
+                        ", "
+                      )}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {/* =================================================
+                  DETAILS
+              ================================================= */}
+
+              <div className="mt-7 space-y-4 border-t border-slate-100 pt-6">
                 <div className="flex justify-between gap-4">
                   <span className="text-sm text-slate-500">
                     Passengers
@@ -711,34 +1438,82 @@ function Payment() {
 
                 <div className="flex justify-between gap-4">
                   <span className="text-sm text-slate-500">
-                    Seats
+                    Trip type
                   </span>
 
-                  <span className="text-sm font-bold text-slate-800">
-                    {selectedSeats.join(", ")}
+                  <span className="text-sm font-bold capitalize text-slate-800">
+                    {isRoundTrip
+                      ? "Round Trip"
+                      : "One Way"}
                   </span>
                 </div>
 
                 <div className="flex justify-between gap-4">
                   <span className="text-sm text-slate-500">
-                    Flight number
+                    Outbound
                   </span>
 
                   <span className="text-sm font-bold text-slate-800">
                     {flight.flightNumber}
                   </span>
                 </div>
+
+                {isRoundTrip && (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-sm text-slate-500">
+                      Return
+                    </span>
+
+                    <span className="text-sm font-bold text-slate-800">
+                      {returnFlight?.flightNumber}
+                    </span>
+                  </div>
+                )}
               </div>
 
-              {/* Price */}
+              {/* =================================================
+                  PRICE
+              ================================================= */}
+
               <div className="mt-7 rounded-2xl bg-slate-50 p-5">
+
+                {isRoundTrip && (
+                  <>
+                    <div className="mb-3 flex justify-between text-sm">
+                      <span className="text-slate-500">
+                        Departure
+                      </span>
+
+                      <span className="font-semibold text-slate-800">
+                        {formatCurrency(
+                          outboundTotal
+                        )}
+                      </span>
+                    </div>
+
+                    <div className="mb-4 flex justify-between text-sm">
+                      <span className="text-slate-500">
+                        Return
+                      </span>
+
+                      <span className="font-semibold text-slate-800">
+                        {formatCurrency(
+                          returnTotal
+                        )}
+                      </span>
+                    </div>
+                  </>
+                )}
+
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-slate-500">
                     Total amount
                   </span>
 
                   <span className="text-2xl font-black text-slate-950">
-                    {formatCurrency(totalPrice)}
+                    {formatCurrency(
+                      totalPrice
+                    )}
                   </span>
                 </div>
 
@@ -750,14 +1525,16 @@ function Payment() {
           </aside>
         </div>
 
-        {/* ================================================= */}
-        {/* Trust Section */}
-        {/* ================================================= */}
+        {/* ==================================================
+            TRUST SECTION
+        ================================================== */}
 
         <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
-            <div className="text-xl">🔒</div>
+            <div className="text-xl">
+              🔒
+            </div>
 
             <p className="mt-3 font-bold text-slate-800">
               Secure payment
@@ -769,7 +1546,9 @@ function Payment() {
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
-            <div className="text-xl">🛡️</div>
+            <div className="text-xl">
+              🛡️
+            </div>
 
             <p className="mt-3 font-bold text-slate-800">
               Protected checkout
@@ -781,7 +1560,9 @@ function Payment() {
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
-            <div className="text-xl">🎫</div>
+            <div className="text-xl">
+              🎫
+            </div>
 
             <p className="mt-3 font-bold text-slate-800">
               Instant confirmation
@@ -791,8 +1572,8 @@ function Payment() {
               After successful payment, your booking is confirmed.
             </p>
           </div>
-        </div>
 
+        </div>
       </div>
     </div>
   );

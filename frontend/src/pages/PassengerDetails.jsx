@@ -5,6 +5,7 @@ import {
   FaArrowLeft,
   FaUser,
   FaCheckCircle,
+  FaExchangeAlt,
 } from "react-icons/fa";
 
 function PassengerDetails() {
@@ -17,18 +18,28 @@ function PassengerDetails() {
 
   const {
     flight,
+    returnFlight = null,
+    tripType = "one-way",
+
     selectedSeats = [],
+    returnSelectedSeats = [],
+
     totalPrice = 0,
   } = location.state || {};
+
+  const isRoundTrip =
+    tripType === "round-trip" && !!returnFlight;
 
   // ============================================================
   // PASSENGER STATE
   // ============================================================
 
+  const passengerSeatCount = selectedSeats.length;
+
   const [passengers, setPassengers] = useState(() =>
     Array.from(
       {
-        length: selectedSeats?.length || 0,
+        length: passengerSeatCount,
       },
       () => ({
         name: "",
@@ -79,6 +90,7 @@ function PassengerDetails() {
             index + 1
           } name.`
         );
+
         return false;
       }
 
@@ -90,6 +102,7 @@ function PassengerDetails() {
             index + 1
           }.`
         );
+
         return false;
       }
 
@@ -99,6 +112,7 @@ function PassengerDetails() {
             index + 1
           }.`
         );
+
         return false;
       }
     }
@@ -117,22 +131,61 @@ function PassengerDetails() {
       return;
     }
 
+    // ==========================================================
+    // FLIGHT VALIDATION
+    // ==========================================================
+
     if (!flight) {
       alert(
         "Flight information is missing. Please select the flight again."
       );
+
       return;
     }
+
+    // ==========================================================
+    // OUTBOUND SEAT VALIDATION
+    // ==========================================================
 
     if (
       !Array.isArray(selectedSeats) ||
       selectedSeats.length === 0
     ) {
       alert(
-        "Seat information is missing. Please select your seats again."
+        "Outbound seat information is missing. Please select your seats again."
       );
+
       return;
     }
+
+    // ==========================================================
+    // ROUND TRIP RETURN VALIDATION
+    // ==========================================================
+
+    if (isRoundTrip) {
+      if (!returnFlight) {
+        alert(
+          "Return flight information is missing."
+        );
+
+        return;
+      }
+
+      if (
+        !Array.isArray(returnSelectedSeats) ||
+        returnSelectedSeats.length === 0
+      ) {
+        alert(
+          "Return flight seats are missing. Please select your return seats again."
+        );
+
+        return;
+      }
+    }
+
+    // ==========================================================
+    // OUTBOUND FLIGHT ID
+    // ==========================================================
 
     const flightId =
       flight?._id ||
@@ -143,18 +196,40 @@ function PassengerDetails() {
       alert(
         "Flight ID is missing. Please try again."
       );
+
       return;
     }
 
-    // ========================================================
-    // KEEP CINEMATIC STATE
-    // ========================================================
+    // ==========================================================
+    // RETURN FLIGHT ID
+    // ==========================================================
+
+    let returnFlightId = null;
+
+    if (isRoundTrip) {
+      returnFlightId =
+        returnFlight?._id ||
+        returnFlight?.id ||
+        returnFlight?.flightId;
+
+      if (!returnFlightId) {
+        alert(
+          "Return flight ID is missing. Please try again."
+        );
+
+        return;
+      }
+    }
+
+    // ==========================================================
+    // START PROCESSING
+    // ==========================================================
 
     setIsProcessing(true);
 
-    // ========================================================
-    // SANITIZE FLIGHT
-    // ========================================================
+    // ==========================================================
+    // SANITIZE OUTBOUND FLIGHT
+    // ==========================================================
 
     const sanitizedFlight = {
       ...flight,
@@ -163,17 +238,52 @@ function PassengerDetails() {
       flightId,
     };
 
-    // ========================================================
-    // IMPORTANT
-    // NO ARTIFICIAL 1.2 SECOND DELAY
-    // ========================================================
+    // ==========================================================
+    // SANITIZE RETURN FLIGHT
+    // ==========================================================
+
+    let sanitizedReturnFlight = null;
+
+    if (isRoundTrip) {
+      sanitizedReturnFlight = {
+        ...returnFlight,
+        _id: returnFlightId,
+        id: returnFlightId,
+        flightId: returnFlightId,
+      };
+    }
+
+    // ==========================================================
+    // GO TO BOOKING REVIEW
+    // ==========================================================
 
     navigate("/booking-review", {
       state: {
+        // Main flight
         flight: sanitizedFlight,
+
+        // Return flight
+        returnFlight: sanitizedReturnFlight,
+
+        // Trip type
+        tripType,
+
+        // Outbound seats
         selectedSeats,
+
+        // Return seats
+        returnSelectedSeats:
+
+          isRoundTrip
+            ? returnSelectedSeats
+            : [],
+
+        // Passenger details
         passengers,
-        totalPrice: Number(totalPrice) || 0,
+
+        // Total amount
+        totalPrice:
+          Number(totalPrice) || 0,
       },
     });
   };
@@ -183,6 +293,8 @@ function PassengerDetails() {
   // ============================================================
 
   const handleBack = () => {
+    if (isProcessing) return;
+
     navigate(-1);
   };
 
@@ -196,7 +308,7 @@ function PassengerDetails() {
     selectedSeats.length === 0
   ) {
     return (
-      <div className="min-h-screen w-full bg-slate-950 text-white flex items-center justify-center p-6">
+      <div className="flex min-h-screen w-full items-center justify-center bg-slate-950 p-6 text-white">
 
         <div className="w-full max-w-lg rounded-3xl border border-white/10 bg-slate-900/90 p-8 text-center shadow-2xl">
 
@@ -241,7 +353,7 @@ function PassengerDetails() {
   }
 
   // ============================================================
-  // FLIGHT DISPLAY DATA
+  // OUTBOUND DISPLAY DATA
   // ============================================================
 
   const fromCode =
@@ -263,6 +375,28 @@ function PassengerDetails() {
     flight?.flightNumber || "Flight";
 
   // ============================================================
+  // RETURN DISPLAY DATA
+  // ============================================================
+
+  const returnFromCode =
+    returnFlight?.departureAirport?.airportCode ||
+    returnFlight?.departureAirport?.code ||
+    returnFlight?.from ||
+    "N/A";
+
+  const returnToCode =
+    returnFlight?.arrivalAirport?.airportCode ||
+    returnFlight?.arrivalAirport?.code ||
+    returnFlight?.to ||
+    "N/A";
+
+  const returnAirline =
+    returnFlight?.airline || "Airline";
+
+  const returnFlightNumber =
+    returnFlight?.flightNumber || "Flight";
+
+  // ============================================================
   // TOTAL
   // ============================================================
 
@@ -274,11 +408,11 @@ function PassengerDetails() {
   // ============================================================
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 text-white px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-screen w-full bg-slate-950 px-4 py-6 text-white md:px-8 md:py-8">
 
-      {/* ========================================================
-          CINEMATIC PROCESSING OVERLAY
-      ======================================================== */}
+      {/* ======================================================
+          PROCESSING OVERLAY
+      ====================================================== */}
 
       {isProcessing && (
         <div className="fixed inset-0 z-100 flex flex-col items-center justify-center overflow-hidden bg-slate-950/95 backdrop-blur-xl">
@@ -290,9 +424,9 @@ function PassengerDetails() {
             <FaPlane
               className="
                 relative
-                text-7xl
                 -rotate-45
                 animate-pulse
+                text-7xl
                 text-blue-400
                 drop-shadow-[0_0_35px_rgba(59,130,246,0.8)]
               "
@@ -315,15 +449,15 @@ function PassengerDetails() {
         </div>
       )}
 
-      {/* ========================================================
-          MAIN CONTAINER
-      ======================================================== */}
+      {/* ======================================================
+          MAIN
+      ====================================================== */}
 
       <div className="mx-auto w-full max-w-4xl pb-12">
 
-        {/* ======================================================
+        {/* ====================================================
             BACK
-        ====================================================== */}
+        ==================================================== */}
 
         <button
           type="button"
@@ -353,9 +487,9 @@ function PassengerDetails() {
           Back to Flight Details
         </button>
 
-        {/* ======================================================
+        {/* ====================================================
             HEADER
-        ====================================================== */}
+        ==================================================== */}
 
         <div className="mb-6 overflow-hidden rounded-3xl border border-white/10 bg-slate-900/80 shadow-2xl backdrop-blur-xl">
 
@@ -377,57 +511,201 @@ function PassengerDetails() {
 
           </div>
 
-          {/* ====================================================
-              FLIGHT SUMMARY
-          ==================================================== */}
+          {/* ==================================================
+              TRIP TYPE
+          ================================================== */}
 
-          <div className="grid grid-cols-1 gap-4 p-6 md:grid-cols-3">
+          <div className="border-b border-white/10 px-6 py-5 md:px-8">
 
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-400/20 bg-blue-500/10 px-4 py-2 text-sm font-bold text-blue-300">
 
-              <p className="text-xs uppercase tracking-wider text-slate-500">
-                Airline
-              </p>
-
-              <p className="mt-1 font-bold">
-                {airline}
-              </p>
-
-              <p className="text-sm text-slate-400">
-                {flightNumber}
-              </p>
-
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-
-              <p className="text-xs uppercase tracking-wider text-slate-500">
-                Route
-              </p>
-
-              <p className="mt-1 text-lg font-bold">
-                {fromCode}
-                <span className="mx-2 text-blue-400">
-                  →
-                </span>
-                {toCode}
-              </p>
-
-            </div>
-
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-
-              <p className="text-xs uppercase tracking-wider text-slate-500">
-                Selected Seats
-              </p>
-
-              <p className="mt-1 font-bold text-blue-400">
-                {selectedSeats.join(", ")}
-              </p>
+              {isRoundTrip ? (
+                <>
+                  <FaExchangeAlt />
+                  Round Trip
+                </>
+              ) : (
+                <>
+                  <FaPlane />
+                  One Way
+                </>
+              )}
 
             </div>
 
           </div>
+
+          {/* ==================================================
+              OUTBOUND FLIGHT
+          ================================================== */}
+
+          <div className="p-6 md:p-8">
+
+            <div className="mb-4 flex items-center gap-3">
+
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400">
+                <FaPlane className="-rotate-45" />
+              </div>
+
+              <div>
+                <p className="text-xs uppercase tracking-widest text-slate-500">
+                  {isRoundTrip
+                    ? "Departure Flight"
+                    : "Selected Flight"}
+                </p>
+
+                <h2 className="text-lg font-bold">
+                  {airline} · {flightNumber}
+                </h2>
+              </div>
+
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+
+              {/* Airline */}
+
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+
+                <p className="text-xs uppercase tracking-wider text-slate-500">
+                  Airline
+                </p>
+
+                <p className="mt-1 font-bold">
+                  {airline}
+                </p>
+
+                <p className="text-sm text-slate-400">
+                  {flightNumber}
+                </p>
+
+              </div>
+
+              {/* Route */}
+
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+
+                <p className="text-xs uppercase tracking-wider text-slate-500">
+                  Route
+                </p>
+
+                <p className="mt-1 text-lg font-bold">
+                  {fromCode}
+
+                  <span className="mx-2 text-blue-400">
+                    →
+                  </span>
+
+                  {toCode}
+                </p>
+
+              </div>
+
+              {/* Seats */}
+
+              <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+
+                <p className="text-xs uppercase tracking-wider text-slate-500">
+                  Departure Seats
+                </p>
+
+                <p className="mt-1 font-bold text-blue-400">
+                  {selectedSeats.join(", ")}
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+          {/* ==================================================
+              RETURN FLIGHT
+          ================================================== */}
+
+          {isRoundTrip && (
+            <div className="border-t border-white/10 p-6 md:p-8">
+
+              <div className="mb-4 flex items-center gap-3">
+
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
+                  <FaPlane className="rotate-180" />
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase tracking-widest text-slate-500">
+                    Return Flight
+                  </p>
+
+                  <h2 className="text-lg font-bold">
+                    {returnAirline} ·{" "}
+                    {returnFlightNumber}
+                  </h2>
+                </div>
+
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+
+                {/* Airline */}
+
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+
+                  <p className="text-xs uppercase tracking-wider text-slate-500">
+                    Airline
+                  </p>
+
+                  <p className="mt-1 font-bold">
+                    {returnAirline}
+                  </p>
+
+                  <p className="text-sm text-slate-400">
+                    {returnFlightNumber}
+                  </p>
+
+                </div>
+
+                {/* Route */}
+
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+
+                  <p className="text-xs uppercase tracking-wider text-slate-500">
+                    Return Route
+                  </p>
+
+                  <p className="mt-1 text-lg font-bold">
+
+                    {returnFromCode}
+
+                    <span className="mx-2 text-amber-400">
+                      →
+                    </span>
+
+                    {returnToCode}
+
+                  </p>
+
+                </div>
+
+                {/* Seats */}
+
+                <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+
+                  <p className="text-xs uppercase tracking-wider text-slate-500">
+                    Return Seats
+                  </p>
+
+                  <p className="mt-1 font-bold text-amber-400">
+                    {returnSelectedSeats.join(", ")}
+                  </p>
+
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
         </div>
 
         {/* ======================================================
@@ -443,14 +721,25 @@ function PassengerDetails() {
             </h2>
 
             <p className="mt-1 text-sm text-slate-400">
+
               Please enter details for{" "}
+
               <strong className="text-white">
                 {selectedSeats.length}
               </strong>{" "}
+
               passenger
               {selectedSeats.length > 1
                 ? "s"
                 : ""}.
+
+              {isRoundTrip && (
+                <span className="ml-1">
+                  These passenger details apply to
+                  both flights.
+                </span>
+              )}
+
             </p>
 
           </div>
@@ -486,9 +775,7 @@ function PassengerDetails() {
                     <div className="flex items-center gap-3">
 
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600/20 text-blue-400">
-
                         <FaUser />
-
                       </div>
 
                       <div>
@@ -499,7 +786,7 @@ function PassengerDetails() {
                         </h3>
 
                         <p className="text-xs text-slate-500">
-                          Seat{" "}
+                          Departure Seat{" "}
                           {selectedSeats[index]}
                         </p>
 
@@ -508,7 +795,8 @@ function PassengerDetails() {
                     </div>
 
                     <div className="rounded-lg border border-blue-400/20 bg-blue-500/10 px-3 py-1.5 text-xs font-bold text-blue-300">
-                      Seat {selectedSeats[index]}
+                      Seat{" "}
+                      {selectedSeats[index]}
                     </div>
 
                   </div>
@@ -655,6 +943,7 @@ function PassengerDetails() {
                           disabled:opacity-60
                         "
                       >
+
                         <option value="Male">
                           Male
                         </option>
@@ -666,11 +955,13 @@ function PassengerDetails() {
                         <option value="Other">
                           Other
                         </option>
+
                       </select>
 
                     </div>
 
                   </div>
+
                 </div>
               )
             )}
@@ -690,10 +981,12 @@ function PassengerDetails() {
                   </p>
 
                   <p className="mt-1 text-3xl font-extrabold text-blue-400">
+
                     ₹
                     {bookingTotal.toLocaleString(
                       "en-IN"
                     )}
+
                   </p>
 
                 </div>
@@ -702,30 +995,81 @@ function PassengerDetails() {
 
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
+              {/* ==================================================
+                  OUTBOUND SEATS
+              ================================================== */}
 
-                {selectedSeats.map(
-                  (seat) => (
-                    <span
-                      key={seat}
-                      className="
-                        rounded-lg
-                        border
-                        border-white/10
-                        bg-white/5
-                        px-3
-                        py-1.5
-                        text-xs
-                        font-semibold
-                        text-slate-300
-                      "
-                    >
-                      Seat {seat}
-                    </span>
-                  )
-                )}
+              <div className="mt-4">
+
+                <p className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+                  Departure Seats
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+
+                  {selectedSeats.map(
+                    (seat) => (
+                      <span
+                        key={`outbound-${seat}`}
+                        className="
+                          rounded-lg
+                          border
+                          border-white/10
+                          bg-white/5
+                          px-3
+                          py-1.5
+                          text-xs
+                          font-semibold
+                          text-slate-300
+                        "
+                      >
+                        Seat {seat}
+                      </span>
+                    )
+                  )}
+
+                </div>
 
               </div>
+
+              {/* ==================================================
+                  RETURN SEATS
+              ================================================== */}
+
+              {isRoundTrip && (
+                <div className="mt-4">
+
+                  <p className="mb-2 text-xs uppercase tracking-wider text-slate-500">
+                    Return Seats
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+
+                    {returnSelectedSeats.map(
+                      (seat) => (
+                        <span
+                          key={`return-${seat}`}
+                          className="
+                            rounded-lg
+                            border
+                            border-amber-400/20
+                            bg-amber-500/5
+                            px-3
+                            py-1.5
+                            text-xs
+                            font-semibold
+                            text-amber-300
+                          "
+                        >
+                          Seat {seat}
+                        </span>
+                      )
+                    )}
+
+                  </div>
+
+                </div>
+              )}
 
             </div>
 
@@ -766,11 +1110,13 @@ function PassengerDetails() {
               {isProcessing ? (
                 <>
                   <FaPlane className="-rotate-45 animate-pulse" />
+
                   Opening Booking Review...
                 </>
               ) : (
                 <>
                   Confirm & Proceed to Review
+
                   <FaPlane className="-rotate-45" />
                 </>
               )}
@@ -785,6 +1131,7 @@ function PassengerDetails() {
           </form>
 
         </div>
+
       </div>
     </div>
   );
