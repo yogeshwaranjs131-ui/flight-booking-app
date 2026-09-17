@@ -1,4 +1,3 @@
-
 import express from "express";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
@@ -12,28 +11,32 @@ import airportRoutes from "./routes/airportRoutes.js";
 
 dotenv.config();
 
-connectDB();
-
 const app = express();
 
 // ============================================================
-// STRIPE
+// DATABASE
+// ============================================================
+
+connectDB();
+
+// ============================================================
+// APP
 // ============================================================
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-// ============================================================
-// CORS CONFIGURATION
-// ============================================================
 
 const allowedOrigins = [
   "http://localhost:5173",
   "https://flight-booking-app-pied.vercel.app",
 ];
 
+// ============================================================
+// CORS
+// ============================================================
+
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow Postman / server-to-server requests
+    // Allow Postman, curl and server-to-server requests
     if (!origin) {
       return callback(null, true);
     }
@@ -42,7 +45,7 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    console.log("CORS blocked:", origin);
+    console.log("CORS blocked origin:", origin);
 
     return callback(new Error("CORS blocked"));
   },
@@ -66,11 +69,21 @@ const corsOptions = {
   optionsSuccessStatus: 204,
 };
 
-// Apply CORS
 app.use(cors(corsOptions));
 
-// Explicitly handle preflight requests
-app.options("*", cors(corsOptions));
+// ============================================================
+// REQUEST LOGGER
+// ============================================================
+
+app.use((req, res, next) => {
+  console.log(
+    `[REQUEST] ${req.method} ${req.originalUrl} | Origin: ${
+      req.headers.origin || "none"
+    }`
+  );
+
+  next();
+});
 
 // ============================================================
 // BODY PARSER
@@ -96,7 +109,6 @@ app.post("/api/create-payment-intent", async (req, res) => {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(Number(amount) * 100),
       currency: "inr",
-
       automatic_payment_methods: {
         enabled: true,
       },
@@ -107,17 +119,21 @@ app.post("/api/create-payment-intent", async (req, res) => {
       clientSecret: paymentIntent.client_secret,
     });
   } catch (error) {
-    console.error("Stripe Payment Error:", error);
+    console.error(
+      "Stripe Payment Error:",
+      error.message
+    );
 
     return res.status(500).json({
       success: false,
-      error: error.message || "Payment creation failed",
+      error:
+        error.message || "Payment creation failed",
     });
   }
 });
 
 // ============================================================
-// ROUTES
+// API ROUTES
 // ============================================================
 
 app.use("/api/auth", authRoutes);
@@ -129,13 +145,21 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/airports", airportRoutes);
 
 // ============================================================
-// HOME / HEALTH CHECK
+// HEALTH CHECK
 // ============================================================
 
 app.get("/", (req, res) => {
   return res.status(200).json({
     success: true,
     message: "Flight Booking API is running...",
+  });
+});
+
+app.get("/api/health", (req, res) => {
+  return res.status(200).json({
+    success: true,
+    message: "Flight Booking API is healthy",
+    timestamp: new Date().toISOString(),
   });
 });
 
@@ -155,7 +179,10 @@ app.use((req, res) => {
 // ============================================================
 
 app.use((err, req, res, next) => {
-  console.error("Server Error:", err);
+  console.error(
+    "Server Error:",
+    err.message
+  );
 
   if (err.message === "CORS blocked") {
     return res.status(403).json({
@@ -166,7 +193,8 @@ app.use((err, req, res, next) => {
 
   return res.status(500).json({
     success: false,
-    message: err.message || "Internal Server Error",
+    message:
+      err.message || "Internal Server Error",
   });
 });
 
@@ -176,7 +204,7 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(
     `Server running in ${
       process.env.NODE_ENV || "development"

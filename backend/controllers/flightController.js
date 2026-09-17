@@ -1,81 +1,193 @@
-import Flight from '../models/Flight.js';
-import Airport from '../models/Airport.js';
-import Booking from '../models/Booking.js';
+import Flight from "../models/Flight.js";
+import Airport from "../models/Airport.js";
+import Booking from "../models/Booking.js";
 
-// Search flights with absolute bulletproof fallback (Never fails, never shows white screen)
+// ============================================================
+// SEARCH FLIGHTS
+// ============================================================
+
 export const searchFlights = async (req, res) => {
   try {
     const { from, to, date } = req.query;
-    let query = {};
 
-    // 1. Departure Airport Match
-    if (from && from.trim() !== '') {
-      const departureAirport = await Airport.findOne({
-        $or: [
-          { airportCode: new RegExp(`^${from.trim()}$`, 'i') },
-          { code: new RegExp(`^${from.trim()}$`, 'i') },
-          { city: new RegExp(from.trim(), 'i') },
-        ],
+    console.log(
+      `[SEARCH] from=${from} to=${to} date=${date}`
+    );
+
+    // ----------------------------------------------------------
+    // Validate query
+    // ----------------------------------------------------------
+
+    if (!from || !to || !date) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Departure airport, arrival airport and travel date are required.",
+        data: [],
       });
-      if (departureAirport) {
-        query.departureAirport = departureAirport._id;
-      }
     }
 
-    // 2. Arrival Airport Match
-    if (to && to.trim() !== '') {
-      const arrivalAirport = await Airport.findOne({
-        $or: [
-          { airportCode: new RegExp(`^${to.trim()}$`, 'i') },
-          { code: new RegExp(`^${to.trim()}$`, 'i') },
-          { city: new RegExp(to.trim(), 'i') },
-        ],
+    const fromCode = String(from).trim().toUpperCase();
+    const toCode = String(to).trim().toUpperCase();
+
+    // ----------------------------------------------------------
+    // Find departure airport
+    // ----------------------------------------------------------
+
+    const departureAirport = await Airport.findOne({
+      airportCode: fromCode,
+    });
+
+    if (!departureAirport) {
+      console.log(
+        `[SEARCH] Departure airport not found: ${fromCode}`
+      );
+
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        message: `Departure airport ${fromCode} not found.`,
+        data: [],
       });
-      if (arrivalAirport) {
-        query.arrivalAirport = arrivalAirport._id;
-      }
     }
 
-    // 3. Safe Date Search
-    if (date) {
-      const cleanDate = date.split(':')[0];
-      const startDate = new Date(cleanDate);
-      if (!isNaN(startDate.getTime())) {
-        const endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 1);
-        query.departureTime = { $gte: startDate, $lt: endDate };
-      }
+    // ----------------------------------------------------------
+    // Find arrival airport
+    // ----------------------------------------------------------
+
+    const arrivalAirport = await Airport.findOne({
+      airportCode: toCode,
+    });
+
+    if (!arrivalAirport) {
+      console.log(
+        `[SEARCH] Arrival airport not found: ${toCode}`
+      );
+
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        message: `Arrival airport ${toCode} not found.`,
+        data: [],
+      });
     }
 
-    let flights = await Flight.find(query)
-      .populate('departureAirport')
-      .populate('arrivalAirport');
+    // ----------------------------------------------------------
+    // Validate date
+    // ----------------------------------------------------------
 
-    // If query yields nothing, get all flights
-    if (!flights || flights.length === 0) {
-      flights = await Flight.find({})
-        .populate('departureAirport')
-        .populate('arrivalAirport');
+    const requestedDate = String(date).trim();
+
+    const startDate = new Date(
+      `${requestedDate}T00:00:00.000Z`
+    );
+
+    if (Number.isNaN(startDate.getTime())) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid travel date.",
+        data: [],
+      });
     }
 
-    // ULTIMATE SAFETY: If still empty, inject a guaranteed fallback flight so UI never breaks
-    if (!flights || flights.length === 0) {
-      flights = [
-        {
-          _id: "emergency-fallback-id-1",
-          airline: "Air India Express",
-          flightNumber: "AI-2026",
-          departureAirport: { city: from || "Hyderabad", airportCode: from || "HYD", name: "Airport" },
-          arrivalAirport: { city: to || "Madurai", airportCode: to || "IXM", name: "Airport" },
-          departureTime: new Date(),
-          arrivalTime: new Date(Date.now() + 7200000),
-          price: 4500,
-          totalSeats: 120,
-          availableSeats: 60,
-          duration: "2h 0m"
+    const endDate = new Date(startDate);
+
+    endDate.setUTCDate(
+      endDate.getUTCDate() + 1
+    );
+
+    // ----------------------------------------------------------
+    // IMPORTANT
+    //
+    // Your Flight model stores departureTime as STRING.
+    //
+    // Therefore we first search by airports.
+    // Then filter the stored date safely in JavaScript.
+    // ----------------------------------------------------------
+
+    const flights = await Flight.find({
+      departureAirport: departureAirport._id,
+      arrivalAirport: arrivalAirport._id,
+    })
+      .populate("departureAirport")
+      .populate("arrivalAirport")
+      .sort({ departureTime: 1 });
+
+    // ----------------------------------------------------------
+    // Filter flights by requested date
+    // ----------------------------------------------------------
+
+    const matchingFlights = flights.filter(
+      (flight) => {
+        if (!flight.departureTime) {
+          return false;
         }
-      ];
+
+        const flightDate =
+          new Date(flight.departureTime);
+
+        if (Number.isNaN(flightDate.getTime())) {
+          return false;
+        }
+
+        return (
+          flightDate >= startDate &&
+          flightDate < endDate
+        );
+      }
+    );
+
+    console.log(
+      `[SEARCH] ${fromCode} -> ${toCode} | Found: ${matchingFlights.length}`
+    );
+
+    // ----------------------------------------------------------
+    // No flights
+    // ----------------------------------------------------------
+
+    if (matchingFlights.length === 0) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        message: `No flights available from ${fromCode} to ${toCode} on ${requestedDate}.`,
+        data: [],
+      });
     }
+
+    // ----------------------------------------------------------
+    // Success
+    // ----------------------------------------------------------
+
+    return res.status(200).json({
+      success: true,
+      count: matchingFlights.length,
+      data: matchingFlights,
+    });
+  } catch (error) {
+    console.error(
+      "Search Flights Error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message:
+        "Unable to search flights. Please try again.",
+      data: [],
+    });
+  }
+};
+
+// ============================================================
+// GET ALL FLIGHTS
+// ============================================================
+
+export const getAllFlights = async (req, res) => {
+  try {
+    const flights = await Flight.find({})
+      .populate("departureAirport")
+      .populate("arrivalAirport")
+      .sort({ departureTime: 1 });
 
     return res.status(200).json({
       success: true,
@@ -83,114 +195,232 @@ export const searchFlights = async (req, res) => {
       data: flights,
     });
   } catch (error) {
-    console.error("Search Flights Error:", error);
-    return res.status(200).json({
-      success: true,
-      count: 1,
-      data: [
-        {
-          _id: "emergency-fallback-id-2",
-          airline: "Indigo Airways",
-          flightNumber: "6E-555",
-          departureAirport: { city: "Hyderabad", airportCode: "HYD", name: "Hyderabad Airport" },
-          arrivalAirport: { city: "Madurai", airportCode: "IXM", name: "Madurai Airport" },
-          departureTime: new Date(),
-          arrivalTime: new Date(Date.now() + 7200000),
-          price: 3500,
-          totalSeats: 100,
-          availableSeats: 40,
-          duration: "1h 50m"
-        }
-      ],
+    console.error(
+      "Get All Flights Error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+      data: [],
     });
   }
 };
 
-export const getAllFlights = async (req, res) => {
-  try {
-    const flights = await Flight.find({})
-      .populate('departureAirport')
-      .populate('arrivalAirport')
-      .sort({ departureTime: 1 });
-    res.status(200).json({ success: true, count: flights.length, data: flights });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
+// ============================================================
+// GET FLIGHT BY ID
+// ============================================================
 
 export const getFlightById = async (req, res) => {
   try {
-    const flight = await Flight.findById(req.params.id)
-      .populate('departureAirport')
-      .populate('arrivalAirport');
+    const flight =
+      await Flight.findById(req.params.id)
+        .populate("departureAirport")
+        .populate("arrivalAirport");
+
     if (!flight) {
-      return res.status(404).json({ success: false, message: 'Flight not found' });
+      return res.status(404).json({
+        success: false,
+        message: "Flight not found",
+      });
     }
-    res.status(200).json({ success: true, data: flight });
+
+    return res.status(200).json({
+      success: true,
+      data: flight,
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(
+      "Get Flight By ID Error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
+
+// ============================================================
+// CREATE FLIGHT
+// ============================================================
 
 export const createFlight = async (req, res) => {
   try {
-    const { airline, flightNumber, departureAirport, arrivalAirport, departureTime, arrivalTime, price, totalSeats, duration } = req.body;
-    
-    // மெமரி கிராஷ் ஆகாமல் இருக்க அதிகபட்ச சீட் வரம்பை 180 ஆகக் கட்டுப்படுத்துகிறோம்
-    const maxSeats = Math.min(Number(totalSeats) || 120, 180);
-    const seats = [];
-    
-    for (let i = 0; i < maxSeats; i++) {
-      const row = Math.floor(i / 6) + 1;
-      const col = String.fromCharCode(65 + (i % 6));
-      seats.push({ number: `${row}${col}`, isAvailable: true });
-    }
-    
-    const flight = await Flight.create({
-      airline, 
-      flightNumber, 
-      departureAirport, 
+    const {
+      airline,
+      flightNumber,
+      departureAirport,
       arrivalAirport,
-      departureTime, 
-      arrivalTime, 
-      price, 
-      totalSeats: maxSeats, 
+      departureTime,
+      arrivalTime,
+      price,
+      totalSeats,
       duration,
-      availableSeats: maxSeats, 
+    } = req.body;
+
+    if (
+      !airline ||
+      !flightNumber ||
+      !departureAirport ||
+      !arrivalAirport ||
+      !departureTime ||
+      !arrivalTime ||
+      !price
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Please provide all required flight details.",
+      });
+    }
+
+    const maxSeats = Math.min(
+      Number(totalSeats) || 120,
+      180
+    );
+
+    const seats = [];
+
+    for (let i = 0; i < maxSeats; i++) {
+      const row =
+        Math.floor(i / 6) + 1;
+
+      const col =
+        String.fromCharCode(
+          65 + (i % 6)
+        );
+
+      seats.push({
+        number: `${row}${col}`,
+        isAvailable: true,
+      });
+    }
+
+    const flight = await Flight.create({
+      airline,
+      flightNumber,
+      departureAirport,
+      arrivalAirport,
+      departureTime,
+      arrivalTime,
+      price,
+      totalSeats: maxSeats,
+      availableSeats: maxSeats,
+      duration,
       seats,
     });
-    
-    res.status(201).json({ success: true, data: flight });
+
+    return res.status(201).json({
+      success: true,
+      message: "Flight created successfully.",
+      data: flight,
+    });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    console.error(
+      "Create Flight Error:",
+      error
+    );
+
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
+
+// ============================================================
+// UPDATE FLIGHT
+// ============================================================
 
 export const updateFlight = async (req, res) => {
   try {
-    const { seats, ...updateData } = req.body;
-    const flight = await Flight.findByIdAndUpdate(req.params.id, updateData, { new: true, runValidators: true });
+    const {
+      seats,
+      ...updateData
+    } = req.body;
+
+    const flight =
+      await Flight.findByIdAndUpdate(
+        req.params.id,
+        updateData,
+        {
+          new: true,
+          runValidators: true,
+        }
+      );
+
     if (!flight) {
-      return res.status(404).json({ success: false, message: 'Flight not found' });
+      return res.status(404).json({
+        success: false,
+        message: "Flight not found",
+      });
     }
-    res.status(200).json({ success: true, data: flight });
+
+    return res.status(200).json({
+      success: true,
+      data: flight,
+    });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    console.error(
+      "Update Flight Error:",
+      error
+    );
+
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
+// ============================================================
+// DELETE FLIGHT
+// ============================================================
+
 export const deleteFlight = async (req, res) => {
   try {
-    const activeBookings = await Booking.countDocuments({ flight: req.params.id, status: 'CONFIRMED' });
+    const activeBookings =
+      await Booking.countDocuments({
+        flight: req.params.id,
+        status: "CONFIRMED",
+      });
+
     if (activeBookings > 0) {
-      return res.status(400).json({ success: false, message: `Cannot delete flight. There are ${activeBookings} active bookings.` });
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete flight. There are ${activeBookings} active bookings.`,
+      });
     }
-    const flight = await Flight.findByIdAndDelete(req.params.id);
+
+    const flight =
+      await Flight.findByIdAndDelete(
+        req.params.id
+      );
+
     if (!flight) {
-      return res.status(404).json({ success: false, message: 'Flight not found' });
+      return res.status(404).json({
+        success: false,
+        message: "Flight not found",
+      });
     }
-    res.status(200).json({ success: true, message: 'Flight removed successfully' });
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Flight removed successfully",
+    });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(
+      "Delete Flight Error:",
+      error
+    );
+
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
