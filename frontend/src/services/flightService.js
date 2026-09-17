@@ -1,63 +1,83 @@
-import api from './api';
+
+import api from "./api";
 
 const flightService = {
-  // Get all flights (for admin)
-  getAllFlights: () => api.get('/flights'),
+  // ============================================================
+  // GET ALL FLIGHTS
+  // ============================================================
 
-  // Search for flights based on criteria (Handles both signal and params correctly)
-  searchFlights: async (arg, retries = 2) => {
-    const signal = arg?.signal;
-    // If params are passed inside an object or directly
-    const params = arg?.params || (arg?.signal ? {} : arg);
-    
-    // Clean up signal if it got mixed into params
-    if (params && params.signal) {
-      delete params.signal;
-    }
+  getAllFlights: async () => {
+    const response = await api.get("/flights");
+    return response.data;
+  },
 
+  // ============================================================
+  // SEARCH FLIGHTS
+  // ============================================================
+
+  searchFlights: async ({ from, to, date, signal } = {}) => {
     try {
-      const response = await api.get('/flights/search', { params, signal });
-      return response;
-    } catch (error) {
-      // 502 அல்லது சர்வர் ரெஸ்பான்ஸ் கிடைக்கவில்லை என்றால் ஆட்டோமேட்டிக்காக மீண்டும் ட்ரை செய்யும்
-      if (retries > 0 && (error.response?.status === 502 || !error.response)) {
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        return flightService.searchFlights(arg, retries - 1);
-      }
+      const response = await api.get("/flights/search", {
+        params: {
+          from,
+          to,
+          date,
+        },
+        signal,
+      });
 
-      // சர்வர் முற்றிலுமாக டவுனில் இருந்தாலும் UI கிராஷ் ஆகாமல் இருக்க எமர்ஜென்சி டேட்டா
-      return {
-        data: {
-          success: true,
-          data: [
-            {
-              _id: "fallback-flight-1",
-              airline: "Air India Express",
-              flightNumber: "AI-101",
-              departureAirport: { city: params?.from || "Hyderabad", airportCode: params?.from || "HYD" },
-              arrivalAirport: { city: params?.to || "Madurai", airportCode: params?.to || "IXM" },
-              departureTime: new Date(),
-              arrivalTime: new Date(Date.now() + 7200000),
-              price: 4500,
-              duration: "2h 0m"
-            }
-          ]
-        }
-      };
+      return response.data;
+    } catch (error) {
+      console.error(
+        "Flight Search API Error:",
+        error.response?.data || error.message
+      );
+
+      // Do NOT return fake flight data.
+      // Let SearchFlights.jsx handle the error safely.
+      throw error;
     }
   },
 
-  // Get a single flight by its ID
-  getFlightById: (id) => api.get(`/flights/${id}`),
+  // ============================================================
+  // GET SINGLE FLIGHT
+  // ============================================================
 
-  // Admin: Create a new flight
-  createFlight: (flightData) => api.post('/flights', flightData),
+  getFlightById: async (id) => {
+    const response = await api.get(`/flights/${id}`);
+    return response.data;
+  },
 
-  // Admin: Update an existing flight
-  updateFlight: (id, flightData) => api.put(`/flights/${id}`, flightData),
+  // ============================================================
+  // ADMIN - CREATE FLIGHT
+  // ============================================================
 
-  // Admin: Delete a flight
-  deleteFlight: (id) => api.delete(`/flights/${id}`),
+  createFlight: async (flightData) => {
+    const response = await api.post("/flights", flightData);
+    return response.data;
+  },
+
+  // ============================================================
+  // ADMIN - UPDATE FLIGHT
+  // ============================================================
+
+  updateFlight: async (id, flightData) => {
+    const response = await api.put(
+      `/flights/${id}`,
+      flightData
+    );
+
+    return response.data;
+  },
+
+  // ============================================================
+  // ADMIN - DELETE FLIGHT
+  // ============================================================
+
+  deleteFlight: async (id) => {
+    const response = await api.delete(`/flights/${id}`);
+    return response.data;
+  },
 };
 
 export default flightService;

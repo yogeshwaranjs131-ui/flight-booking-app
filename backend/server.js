@@ -1,3 +1,4 @@
+
 import express from "express";
 import dotenv from "dotenv";
 import connectDB from "./config/db.js";
@@ -16,7 +17,7 @@ connectDB();
 const app = express();
 
 // ============================================================
-// Stripe
+// STRIPE
 // ============================================================
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -30,41 +31,46 @@ const allowedOrigins = [
   "https://flight-booking-app-pied.vercel.app",
 ];
 
-app.use(
-  cors({
-    origin: function (origin, callback) {
-      // Allow requests without an origin
-      // Example: Postman, server-to-server requests
-      if (!origin) {
-        return callback(null, true);
-      }
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow Postman / server-to-server requests
+    if (!origin) {
+      return callback(null, true);
+    }
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
 
-      return callback(
-        new Error(`CORS blocked for origin: ${origin}`)
-      );
-    },
+    console.log("CORS blocked:", origin);
 
-    credentials: true,
+    return callback(new Error("CORS blocked"));
+  },
 
-    methods: [
-      "GET",
-      "POST",
-      "PUT",
-      "PATCH",
-      "DELETE",
-      "OPTIONS",
-    ],
+  credentials: true,
 
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-    ],
-  })
-);
+  methods: [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+  ],
+
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+  ],
+
+  optionsSuccessStatus: 204,
+};
+
+// Apply CORS
+app.use(cors(corsOptions));
+
+// Explicitly handle preflight requests
+app.options("*", cors(corsOptions));
 
 // ============================================================
 // BODY PARSER
@@ -82,31 +88,30 @@ app.post("/api/create-payment-intent", async (req, res) => {
 
     if (!amount || Number(amount) <= 0) {
       return res.status(400).json({
+        success: false,
         error: "A valid amount is required.",
       });
     }
 
-    const paymentIntent =
-      await stripe.paymentIntents.create({
-        amount: Math.round(Number(amount) * 100),
-        currency: "inr",
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(Number(amount) * 100),
+      currency: "inr",
 
-        automatic_payment_methods: {
-          enabled: true,
-        },
-      });
+      automatic_payment_methods: {
+        enabled: true,
+      },
+    });
 
     return res.status(200).json({
+      success: true,
       clientSecret: paymentIntent.client_secret,
     });
   } catch (error) {
-    console.error(
-      "Stripe Payment Error:",
-      error.message
-    );
+    console.error("Stripe Payment Error:", error);
 
     return res.status(500).json({
-      error: error.message,
+      success: false,
+      error: error.message || "Payment creation failed",
     });
   }
 });
@@ -128,7 +133,7 @@ app.use("/api/airports", airportRoutes);
 // ============================================================
 
 app.get("/", (req, res) => {
-  res.status(200).json({
+  return res.status(200).json({
     success: true,
     message: "Flight Booking API is running...",
   });
@@ -139,7 +144,7 @@ app.get("/", (req, res) => {
 // ============================================================
 
 app.use((req, res) => {
-  res.status(404).json({
+  return res.status(404).json({
     success: false,
     message: `Route not found: ${req.method} ${req.originalUrl}`,
   });
@@ -150,12 +155,12 @@ app.use((req, res) => {
 // ============================================================
 
 app.use((err, req, res, next) => {
-  console.error("Server Error:", err.message);
+  console.error("Server Error:", err);
 
-  if (err.message?.startsWith("CORS blocked")) {
+  if (err.message === "CORS blocked") {
     return res.status(403).json({
       success: false,
-      message: err.message,
+      message: "CORS blocked for this origin",
     });
   }
 
