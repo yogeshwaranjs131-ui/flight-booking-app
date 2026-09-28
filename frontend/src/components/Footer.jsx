@@ -9,8 +9,8 @@ function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* About Section */}
           <div>
-            <h3 className="text-lg font-semibold mb-4">About IndiGo Clone</h3>
-            <p className="text-gray-400 text-sm">This is a clone project for educational purposes, demonstrating a modern flight booking application built with the MERN stack.</p>
+            <h3 className="text-lg font-semibold mb-4">About Aero</h3>
+            <p className="text-gray-400 text-sm">Thoughtful flight booking for wherever the journey takes you.</p>
           </div>
 
           {/* Quick Links */}
@@ -33,7 +33,7 @@ function Footer() {
           </div>
         </div>
         <div className="mt-8 border-t border-gray-700 pt-6 text-center text-sm text-gray-400">
-          <p>&copy; {new Date().getFullYear()} IndiGo Clone. All Rights Reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Aero. All rights reserved.</p>
         </div>
       </div>
     </footer>

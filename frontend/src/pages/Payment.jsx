@@ -44,6 +44,7 @@ function CheckoutForm({
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
+  const [paymentElementReady, setPaymentElementReady] = useState(false);
   const [error, setError] = useState("");
 
   // ==========================================================
@@ -485,9 +486,11 @@ function CheckoutForm({
             STRIPE PAYMENT ELEMENT
         ==================================================== */}
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="payment-option-glass rounded-2xl border p-5 shadow-sm">
           <PaymentElement
+            onReady={() => setPaymentElementReady(true)}
             options={{
+              paymentMethodOrder: ["card", "upi"],
               layout: {
                 type: "tabs",
                 defaultCollapsed: false,
@@ -501,7 +504,7 @@ function CheckoutForm({
           SECURITY
       ====================================================== */}
 
-      <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <div className="payment-security-glass rounded-xl border p-4">
         <div className="flex gap-3">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100">
             🔐
@@ -548,26 +551,10 @@ function CheckoutForm({
         disabled={
           !stripe ||
           !elements ||
+          !paymentElementReady ||
           loading
         }
-        className="
-          group
-          relative
-          w-full
-          overflow-hidden
-          rounded-2xl
-          bg-slate-950
-          px-6
-          py-4
-          text-white
-          shadow-xl
-          transition-all
-          duration-300
-          hover:bg-slate-800
-          hover:shadow-2xl
-          disabled:cursor-not-allowed
-          disabled:bg-slate-400
-        "
+        className="payment-royal-pay-button group relative w-full overflow-hidden rounded-2xl px-6 py-4 transition-all duration-300 disabled:cursor-not-allowed"
       >
         <div className="relative flex items-center justify-center gap-3">
           {loading ? (
@@ -736,13 +723,13 @@ function Payment() {
 
           variables: {
             colorPrimary:
-              "#0f172a",
+              "#123a6a",
 
             colorBackground:
-              "#ffffff",
+              "#fffaf3",
 
             colorText:
-              "#0f172a",
+              "#162933",
 
             colorDanger:
               "#dc2626",
@@ -751,7 +738,7 @@ function Payment() {
               '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
 
             borderRadius:
-              "12px",
+              "14px",
           },
 
           rules: {
@@ -1062,8 +1049,8 @@ function Payment() {
   // ==========================================================
 
   return (
-    <div className="min-h-screen bg-slate-50 py-8 md:py-12">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div className="payment-royal-shell min-h-screen py-8 md:py-12">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
 
         {/* ==================================================
             HEADER
@@ -1072,21 +1059,21 @@ function Payment() {
         <div className="mb-8">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-indigo-600">
+              <p className="payment-royal-eyebrow text-sm font-bold uppercase tracking-[0.2em]">
                 Secure Checkout
               </p>
 
-              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-950 md:text-4xl">
+              <h1 className="payment-royal-title mt-2 text-3xl font-black tracking-tight md:text-4xl">
                 Complete your booking
               </h1>
 
-              <p className="mt-2 text-slate-500">
+              <p className="payment-royal-subtitle mt-2">
                 Securely pay for your flight and receive
                 your booking confirmation.
               </p>
             </div>
 
-            <div className="flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
+            <div className="payment-secure-chip flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold">
               <span>🔒</span>
               Secure checkout
             </div>
@@ -1097,7 +1084,7 @@ function Payment() {
             PROGRESS
         ================================================== */}
 
-        <div className="mb-8 hidden items-center md:flex">
+        <div className="payment-progress mb-8 hidden items-center md:flex">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-white">
               ✓
@@ -1143,9 +1130,9 @@ function Payment() {
               PAYMENT
           ================================================= */}
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm md:p-8">
+          <div className="payment-royal-panel rounded-3xl border p-5 shadow-sm md:p-8">
             <div className="mb-7 flex items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-2xl">
+              <div className="payment-royal-icon flex h-12 w-12 items-center justify-center rounded-2xl text-2xl">
                 💳
               </div>
 
@@ -1263,13 +1250,13 @@ function Payment() {
               BOOKING SUMMARY
           ================================================= */}
 
-          <aside className="h-fit overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+          <aside className="payment-royal-summary h-fit overflow-hidden rounded-3xl border shadow-sm">
 
             {/* =================================================
                 AIRLINE HEADER
             ================================================= */}
 
-            <div className="bg-slate-950 p-6 text-white">
+            <div className="payment-royal-summary-head p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs uppercase tracking-widest text-slate-400">
@@ -1289,7 +1276,7 @@ function Payment() {
               </div>
             </div>
 
-            <div className="p-6">
+            <div className="payment-royal-summary-body p-6">
 
               {/* =================================================
                   OUTBOUND
@@ -1475,7 +1462,7 @@ function Payment() {
                   PRICE
               ================================================= */}
 
-              <div className="mt-7 rounded-2xl bg-slate-50 p-5">
+              <div className="payment-royal-total mt-7 rounded-2xl p-5">
 
                 {isRoundTrip && (
                   <>
@@ -1529,9 +1516,9 @@ function Payment() {
             TRUST SECTION
         ================================================== */}
 
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="payment-trust-grid mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="payment-trust-card rounded-2xl border p-5">
             <div className="text-xl">
               🔒
             </div>
@@ -1545,7 +1532,7 @@ function Payment() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="payment-trust-card rounded-2xl border p-5">
             <div className="text-xl">
               🛡️
             </div>
@@ -1559,7 +1546,7 @@ function Payment() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <div className="payment-trust-card rounded-2xl border p-5">
             <div className="text-xl">
               🎫
             </div>

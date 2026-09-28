@@ -6,6 +6,14 @@ import flightService from "../services/flightService";
 import { formatDate } from "../utils/formatDate";
 import { formatCurrency } from "../utils/formatCurrency.js";
 
+const normalizeFlightList = (response) => {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.flights)) return response.flights;
+  if (Array.isArray(response?.data?.data)) return response.data.data;
+  return [];
+};
+
 function SearchFlights() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -18,8 +26,13 @@ function SearchFlights() {
   const fromParam = (queryParams.get("from") || "").toUpperCase();
   const toParam = (queryParams.get("to") || "").toUpperCase();
   const dateParam = queryParams.get("date") || "";
+  const tripTypeParam = queryParams.get("tripType") || "one-way";
+  const returnDateParam = queryParams.get("returnDate") || "";
+  const isRoundTrip = tripTypeParam === "round-trip";
 
   const [responseData, setResponseData] = useState([]);
+  const [returnResponseData, setReturnResponseData] = useState([]);
+  const [selectedOutboundFlight, setSelectedOutboundFlight] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -46,22 +59,38 @@ function SearchFlights() {
 
   useEffect(() => {
     const fetchFlightsData = async () => {
-      if (!fromParam || !toParam || !dateParam) {
+      if (
+        !fromParam ||
+        !toParam ||
+        !dateParam ||
+        (isRoundTrip && (!returnDateParam || returnDateParam < dateParam))
+      ) {
         setResponseData([]);
-        setErrorMessage("Please select departure, arrival and travel date.");
+        setReturnResponseData([]);
+        setErrorMessage("Please choose valid departure, arrival, and travel dates.");
         setLoading(false);
         return;
       }
 
       setLoading(true);
       setErrorMessage("");
+      setSelectedOutboundFlight(null);
 
       try {
-        const result = await flightService.searchFlights({
-          from: fromParam,
-          to: toParam,
-          date: dateParam,
-        });
+        const [result, returnResult] = await Promise.all([
+          flightService.searchFlights({
+            from: fromParam,
+            to: toParam,
+            date: dateParam,
+          }),
+          isRoundTrip
+            ? flightService.searchFlights({
+                from: toParam,
+                to: fromParam,
+                date: returnDateParam,
+              })
+            : Promise.resolve([]),
+        ]);
 
         console.log("Flight Search Response:", result);
 
@@ -77,17 +106,29 @@ function SearchFlights() {
 
         if (result?.success === false) {
           setResponseData([]);
+          setReturnResponseData([]);
           setErrorMessage(
             result.message || "Unable to search flights."
           );
           return;
         }
 
+        if (returnResult?.success === false) {
+          setResponseData([]);
+          setReturnResponseData([]);
+          setErrorMessage(
+            returnResult.message || "Unable to search return flights."
+          );
+          return;
+        }
+
         setResponseData(result || []);
+        setReturnResponseData(returnResult || []);
       } catch (error) {
         console.error("Flight Search Error:", error);
 
         setResponseData([]);
+        setReturnResponseData([]);
 
         if (error.response?.data?.message) {
           setErrorMessage(error.response.data.message);
@@ -106,42 +147,21 @@ function SearchFlights() {
     };
 
     fetchFlightsData();
-  }, [fromParam, toParam, dateParam]);
+  }, [fromParam, toParam, dateParam, isRoundTrip, returnDateParam]);
 
   // =========================================================
   // NORMALIZE API RESPONSE
   // =========================================================
 
-  const flights = useMemo(() => {
-    if (!responseData) {
-      return [];
-    }
+  const flights = useMemo(
+    () => normalizeFlightList(responseData),
+    [responseData]
+  );
 
-    // Direct array
-    if (Array.isArray(responseData)) {
-      return responseData;
-    }
-
-    // Backend response: { data: [...] }
-    if (Array.isArray(responseData.data)) {
-      return responseData.data;
-    }
-
-    // Alternative response: { flights: [...] }
-    if (Array.isArray(responseData.flights)) {
-      return responseData.flights;
-    }
-
-    // Nested response
-    if (
-      responseData.data &&
-      Array.isArray(responseData.data.data)
-    ) {
-      return responseData.data.data;
-    }
-
-    return [];
-  }, [responseData]);
+  const returnFlights = useMemo(
+    () => normalizeFlightList(returnResponseData),
+    [returnResponseData]
+  );
 
   // =========================================================
   // PRICE RANGE
@@ -441,6 +461,9 @@ function SearchFlights() {
                     {dateParam
                       ? formatDate(dateParam)
                       : ""}
+                    {isRoundTrip && returnDateParam
+                      ? ` · Return ${formatDate(returnDateParam)}`
+                      : ""}
                   </p>
                 </>
               ) : (
@@ -701,7 +724,8 @@ function SearchFlights() {
 
                   {/* SORT */}
 
-                  {filteredAndSortedFlights.length > 0 && (
+                  {filteredAndSortedFlights.length > 0 &&
+                    (!isRoundTrip || !selectedOutboundFlight) && (
                     <div className="flex justify-between items-center mb-6">
 
                       <div className="text-sm text-slate-700 font-medium">
@@ -747,20 +771,81 @@ function SearchFlights() {
                   {/* FLIGHT CARDS */}
 
                   <div className="space-y-6 pb-12">
-
-                    {filteredAndSortedFlights.length >
-                    0 ? (
-                      filteredAndSortedFlights.map(
-                        (flight) => (
-                          <FlightCard
-                            key={
-                              flight._id ||
-                              flight.id
-                            }
-                            flight={flight}
-                          />
-                        )
+                    {isRoundTrip ? (
+                      selectedOutboundFlight ? (
+                        <>
+                          <section className="flex flex-col justify-between gap-3 rounded-2xl border border-white/40 bg-white/80 p-5 shadow-xl sm:flex-row sm:items-center">
+                            <div>
+                              <p className="text-xs font-bold uppercase tracking-wide text-blue-700">Outbound selected</p>
+                              <p className="mt-1 font-semibold text-slate-900">
+                                {selectedOutboundFlight.airline || "Flight"} · {selectedOutboundFlight.flightNumber || selectedOutboundFlight.flightCode || ""}
+                              </p>
+                              <p className="text-sm text-slate-600">{fromParam} → {toParam} · {formatDate(dateParam)}</p>
+                            </div>
+                            <button type="button" onClick={() => setSelectedOutboundFlight(null)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100">
+                              Change outbound
+                            </button>
+                          </section>
+                          <div>
+                            <h2 className="text-xl font-bold text-slate-900">Choose your return flight</h2>
+                            <p className="mt-1 text-sm text-slate-600">{toParam} → {fromParam} · {formatDate(returnDateParam)}</p>
+                          </div>
+                          {returnFlights.length > 0 ? returnFlights.map((flight) => (
+                            <FlightCard
+                              key={flight._id || flight.id}
+                              flight={flight}
+                              selectionLabel="Choose return flight"
+                              onSelect={(returnFlight) => {
+                                const outboundId = selectedOutboundFlight._id || selectedOutboundFlight.id;
+                                navigate(`/flight-details/${outboundId}`, {
+                                  state: {
+                                    flight: selectedOutboundFlight,
+                                    returnFlight,
+                                    tripType: "round-trip",
+                                    departureDate: dateParam,
+                                    returnDate: returnDateParam,
+                                  },
+                                });
+                              }}
+                            />
+                          )) : (
+                            <div className="rounded-2xl border border-white/40 bg-white/80 p-8 text-center shadow-xl">
+                              <h3 className="text-xl font-bold text-slate-900">No return flights found</h3>
+                              <p className="mt-2 text-slate-600">Try a different return date or change your outbound selection.</p>
+                              <button type="button" onClick={() => setSelectedOutboundFlight(null)} className="mt-5 rounded-lg bg-blue-700 px-5 py-3 font-semibold text-white hover:bg-blue-800">
+                                Change outbound flight
+                              </button>
+                            </div>
+                          )}
+                        </>
+                      ) : filteredAndSortedFlights.length > 0 ? (
+                        <>
+                          <h2 className="text-xl font-bold text-slate-900">Choose your outbound flight</h2>
+                          {filteredAndSortedFlights.map((flight) => (
+                            <FlightCard
+                              key={flight._id || flight.id}
+                              flight={flight}
+                              selectionLabel="Choose outbound flight"
+                              onSelect={setSelectedOutboundFlight}
+                            />
+                          ))}
+                        </>
+                      ) : (
+                        <div className="text-center rounded-2xl border border-white/40 bg-white/80 p-12 shadow-2xl">
+                          <h3 className="text-2xl font-bold text-slate-900">No outbound flights found</h3>
+                          <p className="mb-6 mt-2 text-slate-600">Try another airport or travel date.</p>
+                          <button type="button" onClick={() => navigate("/")} className="rounded-xl bg-blue-600 px-6 py-3 font-bold text-white shadow-lg hover:bg-blue-700">
+                            Modify search
+                          </button>
+                        </div>
                       )
+                    ) : filteredAndSortedFlights.length > 0 ? (
+                      filteredAndSortedFlights.map((flight) => (
+                        <FlightCard
+                          key={flight._id || flight.id}
+                          flight={flight}
+                        />
+                      ))
                     ) : (
                       <div className="text-center bg-white/80 backdrop-blur-xl p-12 rounded-2xl border border-white/40 shadow-2xl">
 

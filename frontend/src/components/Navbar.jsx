@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-import { FaPlane, FaBars, FaTimes } from 'react-icons/fa';
+import { FaBars, FaTimes } from 'react-icons/fa';
 
 function Navbar() {
   const { isAuthenticated, isAdmin, logout } = useAuth();
@@ -14,8 +14,12 @@ function Navbar() {
           {/* Logo */}
           <div className="shrink-0">
             <Link to="/" className="flex items-center text-indigo-blue text-2xl font-bold">
-              <FaPlane className="mr-2" />
-              IndiGo
+              <img
+                src="https://i.pinimg.com/736x/c9/ab/03/c9ab0381554f0402e62f6e36dc1d6475.jpg"
+                alt=""
+                className="mr-2 h-9 w-9 rounded-full object-cover"
+              />
+              Aero
             </Link>
           </div>
 

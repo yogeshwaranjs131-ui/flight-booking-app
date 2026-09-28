@@ -8,7 +8,7 @@ import {
   FaArrowRight,
 } from "react-icons/fa";
 
-function FlightCard({ flight }) {
+function FlightCard({ flight, onSelect, selectionLabel = "Select flight" }) {
   const navigate = useNavigate();
 
   if (!flight) {
@@ -176,6 +176,11 @@ function FlightCard({ flight }) {
   // ============================================================
 
   const handleFlightDetails = () => {
+    if (onSelect) {
+      onSelect(flight);
+      return;
+    }
+
     const flightId =
       flight._id || flight.id;
 
@@ -516,7 +521,7 @@ function FlightCard({ flight }) {
 
           <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto">
 
-            <button
+            {!onSelect && <button
               type="button"
               onClick={handleFlightDetails}
               className="
@@ -542,7 +547,7 @@ function FlightCard({ flight }) {
               View Details
 
               <FaArrowRight className="text-xs" />
-            </button>
+            </button>}
 
             <button
               type="button"
@@ -569,7 +574,7 @@ function FlightCard({ flight }) {
                 sm:w-auto
               "
             >
-              Book Now
+              {onSelect ? selectionLabel : "Book Now"}
 
               <FaPlane className="-rotate-45" />
             </button>

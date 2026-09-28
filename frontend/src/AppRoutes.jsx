@@ -2,11 +2,11 @@ import { Routes, Route } from 'react-router-dom';
 
 // Layouts (src/layouts/)
 import AdminLayout from './layouts/AdminLayout';
+import Footer from './components/Footer';
 
 // Route Protection (src/components/)
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
-import FlyingPlane from './components/FlyingPlane'; // பறக்கும் விமான காம்போனன்ட்
 
 // Core Pages (src/pages/)
 import Home from './pages/Home';
@@ -33,11 +33,9 @@ import FlightForm from './admin/FlightForm';
 
 function AppRouter() {
   return (
-    <div className="min-h-screen bg-linear-to-b from-sky-400 via-sky-300 to-blue-500 text-slate-900 relative overflow-hidden">
-      {/* சினிமாட்டிக் பறக்கும் விமானம் அனைத்துப் பக்கங்களிலும் தொடர்ந்து வர */}
-      <FlyingPlane />
-
-      <Routes>
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-linear-to-b from-sky-400 via-sky-300 to-blue-500 text-slate-900">
+      <div className="flex-1">
+        <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
@@ -71,7 +69,9 @@ function AppRouter() {
 
         {/* Global Not Found Route */}
         <Route path="*" element={<NotFound />} />
-      </Routes>
+        </Routes>
+      </div>
+      <Footer />
     </div>
   );
 }

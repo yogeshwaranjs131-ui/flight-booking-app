@@ -33,10 +33,27 @@ export const getUserProfile = async (req, res) => {
  */
 export const uploadProfileImage = async (req, res) => {
   try {
+    const image = req.body?.image;
+    const imageMatch = typeof image === 'string'
+      ? image.match(/^data:image\/(jpeg|png|webp);base64,([A-Za-z0-9+/]+={0,2})$/)
+      : null;
+
+    if (!imageMatch) {
+      return res.status(400).json({
+        message: 'Upload a JPG, PNG, or WEBP image.',
+      });
+    }
+
+    if (Buffer.byteLength(imageMatch[2], 'base64') > 1024 * 1024) {
+      return res.status(413).json({
+        message: 'Profile images must be 1 MB or smaller.',
+      });
+    }
+
     const user = await User.findById(req.user._id);
 
     if (user) {
-      user.profileImage = req.body.image || user.profileImage;
+      user.profileImage = image;
       const updatedUser = await user.save();
 
       res.json({

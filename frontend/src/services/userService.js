@@ -27,15 +27,11 @@ const getMyProfile = () => {
 
 /**
  * Uploads or updates the profile image.
- * @param {FormData} formData - The form data containing the profile image file.
+ * @param {string} image - The image data URL to save on the user's profile.
  * @returns {Promise<object>} The response from the API.
  */
-const uploadProfileImage = (formData) => {
-  return api.post('/users/profile-image', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+const uploadProfileImage = (image) => {
+  return api.post('/users/profile-image', { image });
 };
 
 /**

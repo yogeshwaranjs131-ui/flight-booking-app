@@ -1,5 +1,5 @@
+import "dotenv/config";
 import express from "express";
-import dotenv from "dotenv";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -12,13 +12,12 @@ import airportRoutes from "./routes/airportRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
 
 import {
   notFound,
   errorHandler,
 } from "./middleware/errorMiddleware.js";
-
-dotenv.config();
 
 const app = express();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
@@ -33,6 +32,7 @@ app.use(helmet());
 // CORS ஐ உள்ளமைக்கவும். உங்கள் Netlify frontend URL மற்றும் உள்ளூர் முகவரியை அனுமதிக்கவும்.
 const allowedOrigins = [
   'http://localhost:5173', // உங்கள் உள்ளூர் frontend முகவரி
+  'http://127.0.0.1:5173',
   'https://your-netlify-app-name.netlify.app' // உங்கள் Netlify தளத்தின் உண்மையான முகவரியை இங்கே மாற்றவும்
 ];
 
@@ -51,7 +51,7 @@ const limiter = rateLimit({
 
 app.use('/api', limiter); // Apply the rate limiting to all API routes
 
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
 app.use(
   express.urlencoded({
@@ -69,9 +69,7 @@ app.post('/api/create-payment-intent', async (req, res) => {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(Number(amount) * 100),
       currency: 'inr',
-      automatic_payment_methods: {
-        enabled: true,
-      },
+      payment_method_types: ['card', 'upi'],
     });
 
     return res.status(200).json({
@@ -106,6 +104,11 @@ app.use(
 app.use(
   "/api/users",
   userRoutes
+);
+
+app.use(
+  "/api/reviews",
+  reviewRoutes
 );
 
 app.use(

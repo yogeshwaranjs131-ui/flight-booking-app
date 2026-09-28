@@ -1,5 +1,5 @@
+import "dotenv/config";
 import express from "express";
-import dotenv from "dotenv";
 import connectDB from "./config/db.js";
 import cors from "cors";
 import Stripe from "stripe";
@@ -8,8 +8,8 @@ import authRoutes from "./routes/authRoutes.js";
 import flightRoutes from "./routes/flightRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
 import airportRoutes from "./routes/airportRoutes.js";
-
-dotenv.config();
+import userRoutes from "./routes/userRoutes.js";
+import reviewRoutes from "./routes/reviewRoutes.js";
 
 const app = express();
 
@@ -27,6 +27,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const allowedOrigins = [
   "http://localhost:5173",
+  "http://127.0.0.1:5173",
   "https://flight-booking-app-pied.vercel.app",
 ];
 
@@ -89,7 +90,7 @@ app.use((req, res, next) => {
 // BODY PARSER
 // ============================================================
 
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
 // ============================================================
 // STRIPE PAYMENT INTENT
@@ -109,9 +110,7 @@ app.post("/api/create-payment-intent", async (req, res) => {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(Number(amount) * 100),
       currency: "inr",
-      automatic_payment_methods: {
-        enabled: true,
-      },
+      payment_method_types: ["card", "upi"],
     });
 
     return res.status(200).json({
@@ -143,6 +142,10 @@ app.use("/api/flights", flightRoutes);
 app.use("/api/bookings", bookingRoutes);
 
 app.use("/api/airports", airportRoutes);
+
+app.use("/api/users", userRoutes);
+
+app.use("/api/reviews", reviewRoutes);
 
 // ============================================================
 // HEALTH CHECK

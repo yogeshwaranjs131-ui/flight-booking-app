@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useFetch } from '../hooks/useFetch';
 import userService from '../services/userService';
 import Loader from '../components/Loader.jsx';
-import { FaUserCircle, FaEnvelope, FaIdCard, FaUpload, FaSave, FaShieldAlt } from 'react-icons/fa';
+import { FaEnvelope, FaIdCard, FaUpload, FaSave, FaShieldAlt } from 'react-icons/fa';
 
 function Profile() {
   const navigate = useNavigate();
@@ -28,6 +28,23 @@ function Profile() {
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('Choose a JPG, PNG, or WEBP image.');
+        setSelectedFile(null);
+        setImagePreview(null);
+        e.target.value = '';
+        return;
+      }
+
+      if (file.size > 1024 * 1024) {
+        alert('Choose an image smaller than 1 MB.');
+        setSelectedFile(null);
+        setImagePreview(null);
+        e.target.value = '';
+        return;
+      }
+
       setSelectedFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -48,12 +65,7 @@ function Profile() {
 
     setUploading(true);
     try {
-      const formData = new FormData();
-      formData.append('profileImage', selectedFile); // 'profileImage' is the field name your backend expects
-
-      // Assuming userService has an uploadProfileImage method
-      // This method would send the formData to your backend
-      await userService.uploadProfileImage(formData);
+      await userService.uploadProfileImage(imagePreview);
       alert("Profile image updated successfully!");
       refetch(); // Refetch user data to update the displayed image
       setSelectedFile(null); // Clear selected file
@@ -118,7 +130,7 @@ function Profile() {
             {selectedFile && ( // Show save button only if a file is selected
               <button
                 onClick={handleSaveProfileImage}
-                disabled={uploading}
+                disabled={uploading || !imagePreview}
                 className="mt-4 bg-emerald-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-emerald-700 transition-colors disabled:bg-gray-400 flex items-center mx-auto gap-2"
               >
                 {uploading ? 'Saving...' : <><FaSave /> Save Image</>}
